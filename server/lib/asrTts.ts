@@ -7,6 +7,39 @@
 import WebSocket from "ws";
 
 const bailianFiletransModel = "qwen3-asr-flash-filetrans";
+
+/**
+ * 指数退避重试封装
+ * 当操作失败时自动重试，最多重试 maxAttempts 次
+ * 适用于 WebSocket 连接等瞬态失败
+ * @param shouldRetry - 可选回调，判断错误是否应该重试（返回true则重试）
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: { initialDelay: number; maxDelay: number; maxAttempts: number },
+  shouldRetry?: (err: Error) => boolean
+): Promise<T> {
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt < options.maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (err) {
+      lastError = err as Error;
+      // 如果明确不应该重试，立即抛出
+      if (shouldRetry && !shouldRetry(lastError)) {
+        throw lastError;
+      }
+      if (attempt < options.maxAttempts - 1) {
+        const delay = Math.min(
+          options.initialDelay * Math.pow(2, attempt),
+          options.maxDelay
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError!;
+}
 const bailianTtsModel = "qwen3-tts-instruct-flash-realtime";
 const defaultBailianEndpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const defaultBailianTtsEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
@@ -85,61 +118,66 @@ async function transcribeWithFunAsrRealtime(input: {
   const audio = Buffer.from(input.audioBase64, "base64");
   const textParts: string[] = [];
 
-  await new Promise<void>((resolvePromise, reject) => {
-    const ws = new WebSocket(endpoint, {
-      headers: { Authorization: `Bearer ${input.apiKey}`, "X-DashScope-DataInspection": "enable" },
-    });
-    const taskId = `task_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    let started = false;
-    let finished = false;
-    let closed = false;
-    const timer = setTimeout(() => { ws.close(); reject(new Error("Bailian Fun-ASR timed out")); }, 60000);
+  // 判断是否应该重试：超时错误不重试，其他错误重试
+  const shouldRetry = (err: Error) => !err.message.includes("timed out");
 
-    function cleanup() {
-      if (!closed) { closed = true; try { ws.close(); } catch { /* already closed */ } }
-      clearTimeout(timer);
-    }
+  await withRetry(async () => {
+    return new Promise<void>((resolvePromise, reject) => {
+      const ws = new WebSocket(endpoint, {
+        headers: { Authorization: `Bearer ${input.apiKey}`, "X-DashScope-DataInspection": "enable" },
+      });
+      const taskId = `task_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      let started = false;
+      let finished = false;
+      let closed = false;
+      const timer = setTimeout(() => { ws.close(); reject(new Error("Bailian Fun-ASR timed out")); }, 60000);
 
-    ws.on("open", () => {
-      ws.send(JSON.stringify({
-        header: { action: "run-task", task_id: taskId, streaming: "duplex" },
-        payload: { task_group: "audio", task: "asr", function: "recognition", model, parameters: { format: "wav", sample_rate: 16000 }, input: {} },
-      }));
-    });
+      function cleanup() {
+        if (!closed) { closed = true; try { ws.close(); } catch { /* already closed */ } }
+        clearTimeout(timer);
+      }
 
-    ws.on("message", (raw, isBinary) => {
-      if (isBinary) return;
-      try {
-        const event = JSON.parse(raw.toString()) as {
-          header?: { event?: string; error_message?: string; code?: string };
-          payload?: { output?: { sentence?: { text?: string }; sentences?: Array<{ text?: string }> } };
-        };
-        if (event.header?.error_message) throw new Error(`${event.header.code ?? "ASR_ERROR"}: ${event.header.error_message}`);
-        if (event.header?.event === "task-started") {
-          started = true;
-          for (let offset = 0; offset < audio.length; offset += 3200) {
-            ws.send(audio.subarray(offset, Math.min(offset + 3200, audio.length)));
+      ws.on("open", () => {
+        ws.send(JSON.stringify({
+          header: { action: "run-task", task_id: taskId, streaming: "duplex" },
+          payload: { task_group: "audio", task: "asr", function: "recognition", model, parameters: { format: "wav", sample_rate: 16000 }, input: {} },
+        }));
+      });
+
+      ws.on("message", (raw, isBinary) => {
+        if (isBinary) return;
+        try {
+          const event = JSON.parse(raw.toString()) as {
+            header?: { event?: string; error_message?: string; code?: string };
+            payload?: { output?: { sentence?: { text?: string }; sentences?: Array<{ text?: string }> } };
+          };
+          if (event.header?.error_message) throw new Error(`${event.header.code ?? "ASR_ERROR"}: ${event.header.error_message}`);
+          if (event.header?.event === "task-started") {
+            started = true;
+            for (let offset = 0; offset < audio.length; offset += 3200) {
+              ws.send(audio.subarray(offset, Math.min(offset + 3200, audio.length)));
+            }
+            ws.send(JSON.stringify({ header: { action: "finish-task", task_id: taskId, streaming: "duplex" }, payload: { input: {} } }));
+            return;
           }
-          ws.send(JSON.stringify({ header: { action: "finish-task", task_id: taskId, streaming: "duplex" }, payload: { input: {} } }));
-          return;
-        }
 
-        const sentence = event.payload?.output?.sentence?.text;
-        if (sentence) textParts.push(sentence);
-        const sentences = event.payload?.output?.sentences;
-        if (Array.isArray(sentences)) for (const item of sentences) if (item.text) textParts.push(item.text);
+          const sentence = event.payload?.output?.sentence?.text;
+          if (sentence) textParts.push(sentence);
+          const sentences = event.payload?.output?.sentences;
+          if (Array.isArray(sentences)) for (const item of sentences) if (item.text) textParts.push(item.text);
 
-        if (event.header?.event === "task-finished") { finished = true; cleanup(); resolvePromise(); }
-      } catch (error) { cleanup(); reject(error); }
+          if (event.header?.event === "task-finished") { finished = true; cleanup(); resolvePromise(); }
+        } catch (error) { cleanup(); reject(error); }
+      });
+
+      ws.on("close", () => {
+        cleanup();
+        if (!started) reject(new Error("Bailian Fun-ASR closed before task-started"));
+        else if (!finished) resolvePromise();
+      });
+      ws.on("error", () => { cleanup(); reject(new Error("Bailian Fun-ASR websocket failed")); });
     });
-
-    ws.on("close", () => {
-      cleanup();
-      if (!started) reject(new Error("Bailian Fun-ASR closed before task-started"));
-      else if (!finished) resolvePromise();
-    });
-    ws.on("error", () => { cleanup(); reject(new Error("Bailian Fun-ASR websocket failed")); });
-  });
+  }, { initialDelay: 1000, maxDelay: 10000, maxAttempts: 3 }, shouldRetry);
 
   return { text: mergeIncrementalText(textParts).trim(), raw: { model, endpoint } };
 }
@@ -160,33 +198,38 @@ export async function synthesizeWithBailian(input: {
   const url = `${endpoint.replace(/\?.*$/, "")}?model=${encodeURIComponent(model)}`;
   const audioChunks: Buffer[] = [];
 
-  await new Promise<void>((resolvePromise, reject) => {
-    const ws = new WebSocket(url, { headers: { Authorization: `Bearer ${input.apiKey}`, "OpenAI-Beta": "realtime=v1" } });
-    let closed = false;
-    const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error("Bailian TTS timed out")); }, 60000);
+  // 判断是否应该重试：超时错误不重试，其他错误重试
+  const shouldRetry = (err: Error) => !err.message.includes("timed out");
 
-    function cleanup() {
-      if (!closed) { closed = true; try { ws.close(); } catch { /* already closed */ } }
-      clearTimeout(timer);
-    }
+  await withRetry(async () => {
+    return new Promise<void>((resolvePromise, reject) => {
+      const ws = new WebSocket(url, { headers: { Authorization: `Bearer ${input.apiKey}`, "OpenAI-Beta": "realtime=v1" } });
+      let closed = false;
+      const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error("Bailian TTS timed out")); }, 60000);
 
-    ws.on("open", () => {
-      sendTtsEvent(ws, { type: "session.update", session: { mode: "server_commit", voice: input.voice || "Cherry", language_type: "Auto", response_format: "pcm", sample_rate: 24000, instructions: input.instructions || "用温柔、清晰、适合老人访谈的语气朗读。语速稍慢，停顿自然。", optimize_instructions: true } });
-      sendTtsEvent(ws, { type: "input_text_buffer.append", text: input.text });
-      sendTtsEvent(ws, { type: "input_text_buffer.commit" });
-      sendTtsEvent(ws, { type: "session.finish" });
+      function cleanup() {
+        if (!closed) { closed = true; try { ws.close(); } catch { /* already closed */ } }
+        clearTimeout(timer);
+      }
+
+      ws.on("open", () => {
+        sendTtsEvent(ws, { type: "session.update", session: { mode: "server_commit", voice: input.voice || "Cherry", language_type: "Auto", response_format: "pcm", sample_rate: 24000, instructions: input.instructions || "用温柔、清晰、适合老人访谈的语气朗读。语速稍慢，停顿自然。", optimize_instructions: true } });
+        sendTtsEvent(ws, { type: "input_text_buffer.append", text: input.text });
+        sendTtsEvent(ws, { type: "input_text_buffer.commit" });
+        sendTtsEvent(ws, { type: "session.finish" });
+      });
+
+      ws.on("message", (event) => {
+        try {
+          const data = JSON.parse(event.toString()) as { type?: string; delta?: string; error?: { message?: string } };
+          if (data.type === "response.audio.delta" && data.delta) audioChunks.push(Buffer.from(data.delta, "base64"));
+          if (data.type === "error") throw new Error(data.error?.message ?? "Bailian TTS returned an error");
+          if (data.type === "session.finished" || data.type === "response.done") { cleanup(); resolvePromise(); }
+        } catch (error) { cleanup(); reject(error); }
+      });
+      ws.on("error", () => { cleanup(); reject(new Error("Bailian TTS websocket failed")); });
     });
-
-    ws.on("message", (event) => {
-      try {
-        const data = JSON.parse(event.toString()) as { type?: string; delta?: string; error?: { message?: string } };
-        if (data.type === "response.audio.delta" && data.delta) audioChunks.push(Buffer.from(data.delta, "base64"));
-        if (data.type === "error") throw new Error(data.error?.message ?? "Bailian TTS returned an error");
-        if (data.type === "session.finished" || data.type === "response.done") { cleanup(); resolvePromise(); }
-      } catch (error) { cleanup(); reject(error); }
-    });
-    ws.on("error", () => { cleanup(); reject(new Error("Bailian TTS websocket failed")); });
-  });
+  }, { initialDelay: 1000, maxDelay: 10000, maxAttempts: 3 }, shouldRetry);
 
   const wav = pcm16ToWav(Buffer.concat(audioChunks), 24000, 1);
   return { mimeType: "audio/wav", audioBase64: wav.toString("base64") };

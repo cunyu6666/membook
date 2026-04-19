@@ -23,6 +23,9 @@ const defaultFunAsrEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/
 const defaultBailianEndpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const defaultBailianTtsEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
 
+// 云端后端地址（Spring Boot + Runtime-Service）
+const cloudBackendUrl = process.env.CLOUD_BACKEND_URL ?? "http://localhost:8080";
+
 const nanoPencilLaunch = process.env.NANOPENCIL_RPC === "0" ? null : resolveNanoPencilLaunch();
 const nanoPencilRpc = nanoPencilLaunch
   ? new NanoPencilRpcClient({
@@ -101,6 +104,53 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    // ─── 云端代理模式路由 ───
+    // 将请求转发到 Spring Boot 后端，再由后端调用 Runtime-Service
+    // 这样避免前端直接暴露 API Key，保证安全性
+
+    if (request.method === "POST" && request.url === "/api/cloud/agent/interview") {
+      const body = await readJson<{ session: Session; answer: string }>(request);
+      const result = await proxyToCloud("/api/v1/sessions/-/turns", body);
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/api/cloud/book/generate") {
+      const body = await readJson<{ session: Session }>(request);
+      // 先触发渲染
+      await proxyToCloud("/api/v1/booklets/current/render", body, "POST");
+      // 再获取完整书籍
+      const result = await proxyToCloud("/api/v1/complete-books/current", undefined, "GET");
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/api/cloud/sessions/latest") {
+      const result = await proxyToCloud("/api/v1/sessions/latest-unfinished", undefined, "GET");
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === "POST" && request.url?.startsWith("/api/cloud/sessions/")) {
+      // POST /api/cloud/sessions -> 创建新会话
+      const match = request.url.match(/^\/api\/cloud\/sessions$/);
+      if (match) {
+        const body = await readJson<{ topic_code?: string }>(request);
+        const result = await proxyToCloud("/api/v1/sessions", body);
+        sendJson(response, 200, result);
+        return;
+      }
+      // POST /api/cloud/sessions/:id/turns -> 提交对话轮次
+      const turnMatch = request.url.match(/^\/api\/cloud\/sessions\/([^/]+)\/turns$/);
+      if (turnMatch) {
+        const sessionId = turnMatch[1];
+        const body = await readJson<{ user_text: string }>(request);
+        const result = await proxyToCloud(`/api/v1/sessions/${sessionId}/turns`, body);
+        sendJson(response, 200, result);
+        return;
+      }
+    }
+
     sendJson(response, 404, { error: "Not found" });
   } catch (error) {
     sendJson(response, 500, { error: error instanceof Error ? error.message : "Unknown server error" });
@@ -143,6 +193,30 @@ async function callNanoPencilRpc(session: Session, answer: string) {
   const prompt = buildInterviewPrompt(session, answer);
   const text = await nanoPencilRpc.promptAndWait(prompt);
   return processRpcResponse(text, session, answer);
+}
+
+/**
+ * 云端代理 - 将请求转发到 Spring Boot 后端
+ * 遵循 Runtime 接入指南的架构：server -> backend -> runtime-service
+ */
+async function proxyToCloud<T = unknown>(path: string, body?: unknown, method: "GET" | "POST" = "POST"): Promise<T> {
+  const url = `${cloudBackendUrl}${path}`;
+  const token = process.env.CLOUD_BACKEND_TOKEN ?? "";
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...(body && method === "POST" ? { body: JSON.stringify(body) } : {}),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Cloud backend proxy failed: ${response.status} for ${path}`);
+  }
+
+  return response.json() as Promise<T>;
 }
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown) {
