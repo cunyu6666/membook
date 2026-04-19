@@ -10,13 +10,15 @@ import { StudioLeftPanel } from "./components/pages/StudioLeftPanel";
 import { StudioCenterPanel } from "./components/pages/StudioCenterPanel";
 import { StudioRightPanel } from "./components/pages/StudioRightPanel";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
-import { askAgent, generateBook, getApiStatus } from "./lib/agentClient";
+import { createAgentApi, type AgentApi } from "./lib/agentApi";
+import { getApiStatus } from "./lib/agentClient";
 import { transcribeWithBailian } from "./lib/asrClient";
 import { copy, type Locale } from "./lib/i18n";
 import { synthesizeWithBailian } from "./lib/ttsClient";
 import type { ApiStatus, BookDraft, InterviewSession, InterviewTurn } from "./lib/types";
+import type { AgentMode } from "./components/pages/LoginPage";
 import type { SavedMemoir } from "./lib/session";
-import { nowTurn, createInitialSession, readSavedMemoirs, makeHistoryTitle } from "./lib/session";
+import { nowTurn, createInitialSession, readSavedMemoirs, makeHistoryTitle, cloneMemoir } from "./lib/session";
 import type { ConversationPhase } from "./lib/phaseCopy";
 import { getPhaseCopy, getPhaseProgress } from "./lib/phaseCopy";
 
@@ -57,6 +59,15 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem("membook.bailianTtsVoice") ?? "Cherry");
   const [error, setError] = useState("");
   const [session, setSession] = useState<InterviewSession>(() => createInitialSession("zh"));
+  const [agentMode, setAgentMode] = useState<AgentMode>(() => (localStorage.getItem("membook.agentMode") as AgentMode) || "local");
+
+  // AgentApi 实例 - 根据模式注入（遵循DIP）
+  const [agentApi, setAgentApi] = useState<AgentApi>(() => createAgentApi(agentMode));
+
+  // 当模式切换时重新创建 AgentApi 实例
+  useEffect(() => {
+    setAgentApi(createAgentApi(agentMode));
+  }, [agentMode]);
 
   // Concurrency guards
   const pendingAgentAbort = useRef<AbortController | null>(null);
@@ -108,8 +119,16 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     });
   }, [locale, t.emotionalArc, t.firstQuestion, t.people, t.places]);
 
+  // Save history only when session actually changes (guard against stale equality)
+  const lastSavedSessionId = useRef(session.id);
+  const lastSavedTurnCount = useRef(session.turns.length);
   useEffect(() => {
+    const isNewTurn = session.turns.length !== lastSavedTurnCount.current;
+    const isNewDraft = Boolean(bookDraft);
+    if (!isNewTurn && !isNewDraft) return;
     if (session.turns.length <= 1 && !bookDraft) return;
+    lastSavedSessionId.current = session.id;
+    lastSavedTurnCount.current = session.turns.length;
     const saved: SavedMemoir = { id: session.id, title: bookDraft?.title ?? makeHistoryTitle(session, locale), updatedAt: new Date().toISOString(), session, bookDraft };
     setHistory((current) => [saved, ...current.filter((item) => item.id !== session.id)].slice(0, 20));
   }, [bookDraft, locale, session]);
@@ -118,6 +137,28 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   function handleNewInterview() { setSession(createInitialSession(locale)); setBookDraft(null); setTypedAnswer(""); setTtsAudioUrl(""); setConversationPhase("idle"); setIsCallActive(false); }
   function handleLoadHistory(item: SavedMemoir) { setSession(item.session); setBookDraft(item.bookDraft); setIsHistoryOpen(false); setIsBookOpen(Boolean(item.bookDraft)); setTypedAnswer(""); setConversationPhase("idle"); setIsCallActive(false); }
   function handleDeleteHistory(id: string) { setHistory((current) => current.filter((item) => item.id !== id)); if (session.id === id) handleNewInterview(); }
+  function handleRenameHistory(id: string, newTitle: string) {
+    setHistory((current) =>
+      current.map((item) => (item.id === id ? { ...item, title: newTitle } : item))
+    );
+  }
+  function handleCloneHistory(item: SavedMemoir) {
+    const cloned = cloneMemoir(item);
+    setHistory((current) => [cloned, ...current].slice(0, 20));
+  }
+  function handleUpdateTurn(turnId: string, newContent: string) {
+    setSession((prev) => ({
+      ...prev,
+      turns: prev.turns.map((t) => (t.id === turnId ? { ...t, content: newContent } : t)),
+      readiness: 0,
+    }));
+  }
+  function handleDeleteTurn(turnId: string) {
+    setSession((prev) => ({
+      ...prev,
+      turns: prev.turns.filter((t) => t.id !== turnId),
+    }));
+  }
 
   async function submitAnswerText(answer: string, shouldSpeakResponse = false) {
     const cleanAnswer = answer.trim();
@@ -136,7 +177,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     setError("");
     let questionToSpeak = "";
     try {
-      const response = await askAgent(nextSession, cleanAnswer, abortCtrl.signal);
+      const response = await agentApi.askAgent(nextSession, cleanAnswer, abortCtrl.signal);
       questionToSpeak = response.question;
       setSession({ ...nextSession, turns: [...nextSession.turns, nowTurn("agent", response.question)], insights: response.insights, readiness: response.readiness });
     } catch (err) {
@@ -247,7 +288,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
 
     setIsGenerating(true); setError("");
     try {
-      const draft = await generateBook(session, abortCtrl.signal);
+      const draft = await agentApi.generateBook(session, abortCtrl.signal);
       setBookDraft(draft); setIsBookOpen(true);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -293,7 +334,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     };
 
     try {
-      const draft = await generateBook(importSession);
+      const draft = await agentApi.generateBook(importSession);
       setBookDraft(draft);
       setIsBookOpen(true);
     } catch {
@@ -312,26 +353,66 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  // Keyboard shortcuts: use ref for handler to avoid stale closures, register listener only once
+  const handlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
-    function isTypingTarget(target: EventTarget | null) {
-      if (!(target instanceof HTMLElement)) return false;
-      if (target.closest("[data-space-talk-button]")) return false;
-      return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName);
-    }
-    function handleKeyDown(event: KeyboardEvent) {
+    handlerRef.current = (event: KeyboardEvent) => {
       if (event.code !== "Space" || event.repeat) return;
+      function isTypingTarget(target: EventTarget | null) {
+        if (!(target instanceof HTMLElement)) return false;
+        if (target.closest("[data-space-talk-button]")) return false;
+        return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName);
+      }
       if (isTypingTarget(event.target) || isHistoryOpen || isBookOpen || isSettingsOpen) return;
       event.preventDefault();
       void handleSpaceTalkToggle();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+    };
+  }); // recompute handler on every render (cheap)
+
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => handlerRef.current(e);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []); // register ONCE, always uses latest handler via ref
 
   return (
     <main className="relative min-h-screen overflow-hidden px-3 py-3 sm:px-4 lg:h-screen">
       <div className="pointer-events-none absolute left-1/4 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/8 blur-3xl" />
       <div className="pointer-events-none absolute right-1/4 top-1/4 h-60 w-60 rounded-full bg-accent/8 blur-3xl" />
+
+      {/* Connection Status Indicator */}
+      <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+        {conversationPhase === "transcribing" && (
+          <span className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs text-amber-600 dark:text-amber-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+            {locale === "zh" ? "语音识别中..." : "Transcribing..."}
+          </span>
+        )}
+        {conversationPhase === "thinking" && (
+          <span className="flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-600 dark:text-blue-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+            {locale === "zh" ? "AI思考中..." : "AI thinking..."}
+          </span>
+        )}
+        {conversationPhase === "speaking" && (
+          <span className="flex items-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-600 dark:text-green-400">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+            {locale === "zh" ? "播放语音中..." : "Speaking..."}
+          </span>
+        )}
+        {conversationPhase === "error" && error && (
+          <span className="flex max-w-48 items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-600 dark:text-red-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            <span className="truncate">{error}</span>
+          </span>
+        )}
+        {!bailianApiKey && conversationPhase === "idle" && (
+          <span className="flex items-center gap-1.5 rounded-full bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+            {locale === "zh" ? "请配置API Key" : "Configure API Key"}
+          </span>
+        )}
+      </div>
 
       <div className="relative mx-auto grid h-full max-w-7xl gap-3 lg:grid-cols-[0.72fr_1.12fr_0.9fr]">
         <StudioLeftPanel
@@ -357,10 +438,11 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           locale={locale} t={t} session={session} bookDraft={bookDraft}
           isGenerating={isGenerating} elderTurns={elderTurns} isAsking={isAsking} error={error}
           onGenerateBook={handleGenerateBook} onOpenBook={() => setIsBookOpen(true)}
+          onUpdateTurn={handleUpdateTurn} onDeleteTurn={handleDeleteTurn}
         />
       </div>
 
-      {isHistoryOpen && <HistoryDialog history={history} locale={locale} onClose={() => setIsHistoryOpen(false)} onLoad={handleLoadHistory} onDelete={handleDeleteHistory} onNew={handleNewInterview} />}
+      {isHistoryOpen && <HistoryDialog history={history} locale={locale} onClose={() => setIsHistoryOpen(false)} onLoad={handleLoadHistory} onDelete={handleDeleteHistory} onNew={handleNewInterview} onRename={handleRenameHistory} onClone={handleCloneHistory} />}
       {bookDraft && isBookOpen && <BookReader book={bookDraft} locale={locale} onClose={() => setIsBookOpen(false)} />}
       {isSettingsOpen && (
         <SettingsDialog

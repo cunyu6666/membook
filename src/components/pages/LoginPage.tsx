@@ -12,9 +12,12 @@ import { Field } from "./BookReader";
 import type { Locale } from "../../lib/i18n";
 import { copy } from "../../lib/i18n";
 
+export type AgentMode = "local" | "cloud";
+
 export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [locale, setLocale] = useState<Locale>("zh");
   const [loginError, setLoginError] = useState("");
+  const [agentMode, setAgentMode] = useState<AgentMode>(() => (localStorage.getItem("membook.agentMode") as AgentMode) || "local");
   const t = copy[locale];
 
   function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -24,6 +27,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
     const password = String(form.get("password") ?? "");
     if (username === "admin" && password === "12345678") {
       localStorage.setItem("membook.auth", "admin");
+      localStorage.setItem("membook.agentMode", agentMode);
       onLogin();
       return;
     }
@@ -49,6 +53,40 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
             ? "输入管理员账号密码，继续管理访谈与回忆录。"
             : "Enter your admin credentials to continue."}
         </p>
+
+        {/* Agent mode selector */}
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-medium">{t.selectMode}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setAgentMode("local")}
+              className={`flex flex-col items-center rounded-lg border-2 p-3 transition-all ${
+                agentMode === "local"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-muted-foreground/20 text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              <i className="ri-computer-line mb-1 text-xl" />
+              <span className="text-xs font-medium">{t.localMode}</span>
+              <span className="mt-0.5 text-center text-[10px] opacity-70">{t.localModeDesc}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgentMode("cloud")}
+              className={`flex flex-col items-center rounded-lg border-2 p-3 transition-all ${
+                agentMode === "cloud"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-muted-foreground/20 text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              <i className="ri-cloud-line mb-1 text-xl" />
+              <span className="text-xs font-medium">{t.cloudMode}</span>
+              <span className="mt-0.5 text-center text-[10px] opacity-70">{t.cloudModeDesc}</span>
+            </button>
+          </div>
+        </div>
+
         <form className="mt-6 grid gap-3" onSubmit={handleLogin}>
           <Field
             label={locale === "zh" ? "账号" : "Username"}

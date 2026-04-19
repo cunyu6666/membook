@@ -1,54 +1,12 @@
 /**
- * [WHO]: 提供AI访谈和回忆录生成的API客户端函数：askAgent, generateBook, getApiStatus
+ * [WHO]: 提供API状态查询函数：getApiStatus
  * [FROM]: 依赖 ./types.ts 的类型定义，浏览器fetch API
- * [TO]: 被 App.tsx 消费，用于与服务端/api/端点通信
- * [HERE]: src/lib/agentClient.ts，前端与后端API的桥接层
+ * [TO]: 被 StudioPage.tsx 消费，用于获取服务端状态
+ * [HERE]: src/lib/agentClient.ts，API状态查询层
  */
-import type {
-  ApiStatus,
-  AgentInterviewResponse,
-  BookDraft,
-  InterviewSession,
-} from "./types";
+import type { ApiStatus } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
-
-export async function askAgent(
-  session: InterviewSession,
-  answer: string,
-  signal?: AbortSignal,
-): Promise<AgentInterviewResponse> {
-  const response = await fetch(`${API_BASE}/api/agent/interview`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session, answer }),
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Agent request failed: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-export async function generateBook(
-  session: InterviewSession,
-  signal?: AbortSignal,
-): Promise<BookDraft> {
-  const response = await fetch(`${API_BASE}/api/book/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session }),
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Book generation failed: ${response.status}`);
-  }
-
-  return response.json();
-}
 
 export async function getApiStatus(): Promise<ApiStatus> {
   const response = await fetch(`${API_BASE}/api/status`);
