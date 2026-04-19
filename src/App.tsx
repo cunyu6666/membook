@@ -6,12 +6,17 @@
  * [HERE]: src/App.tsx，前端应用核心，与components/、hooks/、lib/模块直接相邻
  */
 import { type ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Routes, Route, useNavigate, useParams } from "react-router-dom";
+import logoImage from "./assets/logo.jpg";
 import { Badge } from "./components/ui/Badge";
 import { Button } from "./components/ui/Button";
 import { Card } from "./components/ui/Card";
 import { Textarea } from "./components/ui/Textarea";
-import { RealtimeTranscriber } from "./components/ui/RealtimeTranscriber";
+import { ShimmeringText } from "./components/ui/shimmering-text";
+import { MorphingSpinner } from "./components/ui/morphing-spinner";
+import { LandingCarousel } from "./components/ui/LandingCarousel";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
+import { seedMockMemoir } from "./lib/devSeed";
 import { askAgent, generateBook, getApiStatus } from "./lib/agentClient";
 import { transcribeWithBailian } from "./lib/asrClient";
 import { copy, type Locale } from "./lib/i18n";
@@ -73,6 +78,10 @@ function createInitialSession(locale: Locale): InterviewSession {
 }
 
 function readSavedMemoirs(): SavedMemoir[] {
+  // Seed mock data BEFORE reading so dev mode always has the demo
+  if (import.meta.env.DEV) {
+    seedMockMemoir();
+  }
   try {
     const raw = localStorage.getItem("membook.history");
     return raw ? (JSON.parse(raw) as SavedMemoir[]) : [];
@@ -81,15 +90,262 @@ function readSavedMemoirs(): SavedMemoir[] {
   }
 }
 
-export function App() {
+/* ─── Login Page ─── */
+function LoginPage({
+  onLogin: onLoginSuccess,
+}: {
+  onLogin: () => void;
+}) {
+  const [locale, setLocale] = useState<Locale>("zh");
+  const [loginError, setLoginError] = useState("");
+  const t = copy[locale];
+
+  function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const username = String(form.get("username") ?? "");
+    const password = String(form.get("password") ?? "");
+    if (username === "admin" && password === "12345678") {
+      localStorage.setItem("membook.auth", "admin");
+      onLoginSuccess();
+      return;
+    }
+    setLoginError(locale === "zh" ? "账号或密码不对。" : "Invalid username or password.");
+  }
+
+  return (
+    <main className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-8">
+      {/* Background glow */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+
+      <Card className="relative z-10 w-full max-w-sm p-6 shadow-2xl">
+        <div className="mb-2 flex items-center justify-between">
+          <Badge>{locale === "zh" ? "登录" : "Login"}</Badge>
+          <Button variant="secondary" size="icon" onClick={() => setLocale(locale === "zh" ? "en" : "zh")}>
+            <i className="ri-translate-2" />
+          </Button>
+        </div>
+        <h2 className="mt-4 font-serif-cn text-2xl font-bold tracking-[-0.04em]">
+          {locale === "zh" ? "欢迎回来" : "Welcome back"}
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {locale === "zh"
+            ? "输入管理员账号密码，继续管理访谈与回忆录。"
+            : "Enter your admin credentials to continue."}
+        </p>
+        <form className="mt-6 grid gap-3" onSubmit={handleLogin}>
+          <Field
+            label={locale === "zh" ? "账号" : "Username"}
+            name="username"
+            value={undefined}
+            placeholder="admin"
+          />
+          <Field
+            label={locale === "zh" ? "密码" : "Password"}
+            name="password"
+            type="password"
+            value={undefined}
+            placeholder="12345678"
+          />
+          {loginError && (
+            <p className="rounded-lg bg-primary/10 p-3 text-sm text-primary">
+              {loginError}
+            </p>
+          )}
+          <Button type="submit" size="lg" className="mt-2">
+            <i className="ri-login-circle-line" />
+            {locale === "zh" ? "进入工作台" : "Enter studio"}
+          </Button>
+        </form>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          <a href="/" className="hover:text-primary">
+            {locale === "zh" ? "← 返回首页" : "← Back to home"}
+          </a>
+        </p>
+      </Card>
+    </main>
+  );
+}
+
+/* ─── Landing Page ─── */
+function LandingPage() {
+  const [locale, setLocale] = useState<Locale>("zh");
+
+  const features = [
+    {
+      icon: "ri-mic-line",
+      title: locale === "zh" ? "语音访谈" : "Voice Interview",
+      desc: locale === "zh"
+        ? "AI 像打电话一样温柔追问，引导长辈讲述人生故事"
+        : "AI gently guides conversations like a phone call, helping elders share their life stories",
+    },
+    {
+      icon: "ri-book-open-line",
+      title: locale === "zh" ? "回忆成书" : "Auto-Biography",
+      desc: locale === "zh"
+        ? "将访谈内容自动生成精美的回忆录，永久珍藏"
+        : "Automatically generates a beautiful memoir from interview content to preserve forever",
+    },
+    {
+      icon: "ri-global-line",
+      title: locale === "zh" ? "多语言" : "Multilingual",
+      desc: locale === "zh"
+        ? "支持中文与英文切换，照顾不同语言背景的家庭"
+        : "Supports Chinese and English, caring for families across language backgrounds",
+    },
+  ];
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background via-background to-primary/[0.04]">
+      {/* Starlight ambient accents */}
+      <div className="pointer-events-none absolute left-1/4 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/8 blur-3xl" />
+      <div className="pointer-events-none absolute right-1/4 top-1/4 h-60 w-60 rounded-full bg-accent/8 blur-3xl" />
+
+      <div className="relative z-10 mx-auto flex max-w-7xl flex-col px-4 sm:px-6 lg:px-8">
+        {/* Top nav */}
+        <header className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10">
+              <img
+                src={logoImage}
+                alt="logo"
+                className="h-7 w-7 rounded"
+              />
+            </div>
+            <span className="text-lg font-bold">
+              {locale === "zh" ? "星光回忆录" : "Starlight Memoir"}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setLocale(locale === "zh" ? "en" : "zh")}>
+              <i className="ri-translate-2" />
+              {locale === "zh" ? "EN" : "中文"}
+            </Button>
+            <Button size="sm" onClick={() => (window.location.href = "/login")}>
+              <i className="ri-login-circle-line" />
+              {locale === "zh" ? "登录" : "Login"}
+            </Button>
+          </div>
+        </header>
+
+        {/* Hero section */}
+        <section className="mx-auto mt-8 flex max-w-7xl flex-col items-center lg:flex-row lg:gap-12">
+          {/* Left: Content */}
+          <div className="flex-1 text-center lg:text-left">
+            <Badge className="mb-5">
+              {locale === "zh" ? "用声音记录一辈子的回忆" : "Record a lifetime of memories with voice"}
+            </Badge>
+            <h1 className="font-serif-cn text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl text-balance">
+              {locale === "zh" ? "让每一位长辈的故事，都成为一本书" : "Every Elder's Story Deserves to Be a Book"}
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl text-balance lg:mx-0">
+              {locale === "zh"
+                ? "AI 语音访谈 + 自动追问 + 回忆录成书，用科技留住那些慢慢说出的日子。"
+                : "AI voice interviews with follow-up questions and auto-generated memoirs — preserving the days spoken slowly, with technology."}
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
+              <Button
+                size="lg"
+                className="rounded-full px-8"
+                onClick={() => (window.location.href = "/login")}
+              >
+                {locale === "zh" ? "开始记录" : "Start Recording"}
+                <i className="ri-arrow-right-line" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="rounded-full px-8"
+                onClick={() => {
+                  document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                {locale === "zh" ? "了解更多" : "Learn More"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Right: Carousel */}
+          <div className="mt-10 flex-1 lg:mt-0">
+            <LandingCarousel />
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" className="mx-auto mt-20 max-w-5xl pb-20">
+          <h2 className="mb-10 text-center font-serif-cn text-3xl font-bold tracking-tight">
+            {locale === "zh" ? "如何记录一生" : "How to Record a Life"}
+          </h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {features.map((f) => (
+              <div
+                key={f.title}
+                className={cn(
+                  "rounded-2xl border border-border/50 bg-card/50 p-6 text-center backdrop-blur-sm",
+                  "transition-all duration-300 hover:border-border hover:bg-card/80 group",
+                )}
+              >
+                <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
+                  <i className={cn(f.icon, "text-xl")} />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                  {f.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {f.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+/* ─── Book Reader Page ─── */
+function BookReaderPage() {
+  const { id: bookId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [locale] = useState<Locale>("zh");
+  const [book, setBook] = useState<BookDraft | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("membook.history");
+      if (!raw) return;
+      const items: SavedMemoir[] = JSON.parse(raw);
+      const found = items.find((i) => i.id === bookId);
+      if (found?.bookDraft) setBook(found.bookDraft);
+    } catch { /* ignore */ }
+  }, [bookId]);
+
+  if (!book) {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/42 backdrop-blur-xl">
+        <Card className="p-8 text-center">
+          <p className="text-lg font-bold">{locale === "zh" ? "未找到这本书" : "Book not found"}</p>
+          <Button className="mt-4" onClick={() => navigate("/")}>
+            {locale === "zh" ? "返回工作台" : "Back to studio"}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  return <BookReader book={book} locale={locale} onClose={() => navigate("/")} />;
+}
+
+/* ─── Main Studio Page ─── */
+function StudioPage({
+  onLogout,
+}: {
+  onLogout: () => void;
+}) {
   const [locale, setLocale] = useState<Locale>("zh");
   const [isDark, setIsDark] = useState(false);
   const t = copy[locale];
   const recorder = useAudioRecorder();
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem("membook.auth") === "admin",
-  );
-  const [loginError, setLoginError] = useState("");
   const [history, setHistory] = useState<SavedMemoir[]>(readSavedMemoirs);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isBookOpen, setIsBookOpen] = useState(false);
@@ -102,7 +358,7 @@ export function App() {
   const [conversationPhase, setConversationPhase] =
     useState<ConversationPhase>("idle");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [ttsAudioUrl, setTtsAudioUrl] = useState("");
+  const [, setTtsAudioUrl] = useState("");
   const [bookDraft, setBookDraft] = useState<BookDraft | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [bailianApiKey, setBailianApiKey] = useState(
@@ -128,7 +384,6 @@ export function App() {
     () => localStorage.getItem("membook.bailianTtsVoice") ?? "Cherry",
   );
   const [error, setError] = useState("");
-  const [transcriberText, setTranscriberText] = useState("");
   const [session, setSession] = useState<InterviewSession>(() =>
     createInitialSession("zh"),
   );
@@ -142,10 +397,12 @@ export function App() {
     [...session.turns].reverse().find((turn) => turn.role === "agent")?.content ??
     t.fallbackQuestion;
   const phaseCopy = getPhaseCopy(conversationPhase, locale);
+  const phaseProgress = getPhaseProgress(conversationPhase);
   const isVoiceBusy =
     conversationPhase === "transcribing" ||
     conversationPhase === "thinking" ||
     conversationPhase === "speaking";
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
@@ -231,7 +488,7 @@ export function App() {
   }, [locale, t.emotionalArc, t.firstQuestion, t.people, t.places]);
 
   useEffect(() => {
-    if (!isAuthenticated || (session.turns.length <= 1 && !bookDraft)) {
+    if (session.turns.length <= 1 && !bookDraft) {
       return;
     }
 
@@ -246,28 +503,11 @@ export function App() {
       saved,
       ...current.filter((item) => item.id !== session.id),
     ].slice(0, 20));
-  }, [bookDraft, isAuthenticated, locale, session]);
-
-  function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const username = String(form.get("username") ?? "");
-    const password = String(form.get("password") ?? "");
-    if (username === "admin" && password === "12345678") {
-      localStorage.setItem("membook.auth", "admin");
-      setIsAuthenticated(true);
-      setLoginError("");
-      return;
-    }
-
-    setLoginError(locale === "zh" ? "账号或密码不对。" : "Invalid username or password.");
-  }
+  }, [bookDraft, locale, session]);
 
   function handleLogout() {
     localStorage.removeItem("membook.auth");
-    setIsAuthenticated(false);
-    setIsCallActive(false);
-    setConversationPhase("idle");
+    onLogout();
   }
 
   function handleNewInterview() {
@@ -337,7 +577,7 @@ export function App() {
     }
 
     if (shouldSpeakResponse && questionToSpeak) {
-      await speakQuestionText(questionToSpeak);
+      await speakQuestionText(questionToSpeak, { autoResumeRecording: true });
     } else {
       setConversationPhase("ready");
     }
@@ -398,7 +638,10 @@ export function App() {
     await submitAnswerText(text, true);
   }
 
-  async function speakQuestionText(text: string) {
+  async function speakQuestionText(
+    text: string,
+    options?: { autoResumeRecording?: boolean },
+  ) {
     if (!bailianApiKey || isSpeaking) {
       if (!bailianApiKey) {
         setIsSettingsOpen(true);
@@ -415,6 +658,7 @@ export function App() {
     setIsSpeaking(true);
     setConversationPhase("speaking");
     setError("");
+    let played = false;
     try {
       const audioUrl = await synthesizeWithBailian({
         apiKey: bailianApiKey,
@@ -431,11 +675,12 @@ export function App() {
       try {
         const audio = new Audio(audioUrl);
         await audio.play();
+        played = true;
       } catch (playError) {
         setError(
           locale === "zh"
-            ? `音频已生成，请点击播放器手动播放。自动播放提示：${errorMessage(playError)}`
-            : `Audio ready. Tap the player to listen. Autoplay note: ${errorMessage(playError)}`,
+            ? `音频已生成，但浏览器拦截了自动播放。请先点一次朗读，再继续说。提示：${errorMessage(playError)}`
+            : `Audio is ready, but autoplay was blocked. Tap read aloud once, then continue. Note: ${errorMessage(playError)}`,
         );
       }
     } catch (caught) {
@@ -446,7 +691,16 @@ export function App() {
       );
     } finally {
       setIsSpeaking(false);
-      setConversationPhase("ready");
+      const shouldAutoResume =
+        Boolean(options?.autoResumeRecording) &&
+        isCallActive &&
+        !recorder.isRecording &&
+        played;
+      if (shouldAutoResume) {
+        await startVoiceRecording();
+      } else {
+        setConversationPhase("ready");
+      }
     }
   }
 
@@ -454,39 +708,21 @@ export function App() {
     await speakQuestionText(latestAgentQuestion);
   }
 
-  async function handleTranscriberSubmit(text: string) {
-    if (text.trim()) {
-      await submitAnswerText(text.trim(), isCallActive);
+  async function stopVoiceRecording() {
+    setConversationPhase("transcribing");
+    const file = recorder.stop();
+    if (file) {
+      await handleVoiceTurn(file);
     }
   }
 
-  async function handleCallButton() {
-    if (!isCallActive) {
-      setIsCallActive(true);
-      setConversationPhase("ready");
-      await speakQuestionText(latestAgentQuestion);
-      return;
-    }
-
-    if (recorder.isRecording) {
-      setConversationPhase("transcribing");
-      const file = recorder.stop();
-      if (file) {
-        await handleVoiceTurn(file);
-      }
-      return;
-    }
-
-    if (isVoiceBusy) {
-      return;
-    }
-
-    if (!bailianApiKey) {
-      setIsSettingsOpen(true);
+  async function startVoiceRecording() {
+    if (!recorder.isSupported) {
+      setConversationPhase("error");
       setError(
         locale === "zh"
-          ? "请先在设置里填写百炼 API Key，然后就可以像打电话一样对话。"
-          : "Add your Bailian API key first, then the call flow can run voice-to-voice.",
+          ? "当前浏览器不支持录音，请换用最新版 Chrome、Edge 或 Safari。"
+          : "This browser does not support recording. Use the latest Chrome, Edge, or Safari.",
       );
       return;
     }
@@ -504,6 +740,63 @@ export function App() {
           : `Could not open microphone: ${errorMessage(caught)}`,
       );
     }
+  }
+
+  async function handleCallButton() {
+    if (!isCallActive) {
+      setIsCallActive(true);
+      setConversationPhase("ready");
+      await speakQuestionText(latestAgentQuestion, { autoResumeRecording: true });
+      return;
+    }
+
+    if (recorder.isRecording) {
+      await stopVoiceRecording();
+      return;
+    }
+
+    if (isVoiceBusy) {
+      return;
+    }
+
+    if (!bailianApiKey) {
+      setIsSettingsOpen(true);
+      setError(
+        locale === "zh"
+          ? "请先在设置里填写百炼 API Key，然后就可以像打电话一样对话。"
+          : "Add your Bailian API key first, then the call flow can run voice-to-voice.",
+      );
+      return;
+    }
+
+    await startVoiceRecording();
+  }
+
+  async function handleSpaceTalkToggle() {
+    if (isVoiceBusy) {
+      return;
+    }
+
+    if (recorder.isRecording) {
+      await stopVoiceRecording();
+      return;
+    }
+
+    if (!bailianApiKey) {
+      setIsSettingsOpen(true);
+      setError(
+        locale === "zh"
+          ? "请先在设置里填写百炼 API Key，然后就可以按空格开始说话。"
+          : "Add your Bailian API key first, then press Space to speak.",
+      );
+      return;
+    }
+
+    if (!isCallActive) {
+      setIsCallActive(true);
+    }
+
+    await startVoiceRecording();
   }
 
   async function handleGenerateBook() {
@@ -542,50 +835,67 @@ export function App() {
     }
   }
 
-  if (!isAuthenticated) {
-    return (
-      <LoginScreen
-        locale={locale}
-        isDark={isDark}
-        error={loginError}
-        onLogin={handleLogin}
-        onToggleTheme={() => setIsDark((value) => !value)}
-        onToggleLocale={() => setLocale(locale === "zh" ? "en" : "zh")}
-      />
-    );
-  }
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (target.closest("[data-space-talk-button]")) {
+        return false;
+      }
+
+      return (
+        target.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName)
+      );
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.code !== "Space" || event.repeat) {
+        return;
+      }
+
+      if (
+        isTypingTarget(event.target) ||
+        isHistoryOpen ||
+        isBookOpen ||
+        isSettingsOpen
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      void handleSpaceTalkToggle();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-4 sm:px-5 lg:h-screen">
+    <main className="relative min-h-screen overflow-hidden px-3 py-3 sm:px-4 lg:h-screen">
       {/* Starlight ambient accents */}
       <div className="pointer-events-none absolute left-1/4 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/8 blur-3xl" />
       <div className="pointer-events-none absolute right-1/4 top-1/4 h-60 w-60 rounded-full bg-accent/8 blur-3xl" />
 
-      <div className="relative mx-auto grid h-full max-w-7xl gap-4 lg:grid-cols-[0.78fr_1.08fr_0.92fr]">
+      <div className="relative mx-auto grid h-full max-w-7xl gap-3 lg:grid-cols-[0.72fr_1.12fr_0.9fr]">
         {/* Left panel: Brand & status */}
-        <Card className="animate-rise-in flex min-h-0 flex-col gap-4 p-4">
-          <header className="flex items-center justify-between gap-3">
+        <Card className="animate-rise-in flex min-h-0 flex-col gap-3 p-4">
+          <header className="grid gap-3">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-primary"
-                >
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
+              <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10">
+                <img
+                  src={logoImage}
+                  alt="logo"
+                  className="h-7 w-7 rounded"
+                />
               </div>
               <div>
                 <p className="text-lg font-bold">{t.appName}</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <Button
                 variant="secondary"
                 size="icon"
@@ -629,11 +939,11 @@ export function App() {
             </div>
           </header>
 
-          <section className="rounded-[1.75rem] bg-gradient-to-br from-primary to-accent p-5 text-background">
+          <section className="rounded-lg bg-[linear-gradient(145deg,oklch(var(--primary)),oklch(var(--accent)))] p-4 text-background shadow-[inset_0_1px_0_oklch(var(--primary-foreground)/0.18)]">
             <Badge className="border-background/20 bg-background/10 text-background/80">
               {t.compactHint}
             </Badge>
-            <h1 className="mt-5 text-3xl font-bold leading-[0.92] tracking-[-0.04em] text-background">
+            <h1 className="mt-4 text-2xl font-bold leading-tight text-background">
               {t.heroTitle}
             </h1>
             <p className="mt-3 text-sm leading-6 text-background/75">
@@ -641,9 +951,8 @@ export function App() {
             </p>
           </section>
 
-          {/* Connection status */}
-          <section className="space-y-3">
-            <div className="rounded-3xl border border-border bg-background/42 p-3">
+          <section className="grid gap-3">
+            <div className="rounded-lg bg-background/52 p-3 shadow-[inset_0_1px_0_oklch(var(--primary-foreground)/0.22)]">
               <ConnectionLine
                 items={[
                   { label: t.connService, active: Boolean(apiStatus) },
@@ -662,6 +971,34 @@ export function App() {
                   },
                 ]}
               />
+            </div>
+          </section>
+
+          <section className="grid gap-2 rounded-lg bg-muted/30 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-serif-cn text-base font-bold tracking-normal">
+                {locale === "zh" ? "访谈节奏" : "Interview Flow"}
+              </h2>
+              <span className="text-xs font-semibold text-primary">
+                {session.readiness}%
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-background/60">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${session.readiness}%` }}
+              />
+            </div>
+            <div className="grid gap-1.5 text-sm">
+              {getRhythmItems(locale, elderTurns.length, session.readiness).map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-card/55 px-3 py-2"
+                >
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-semibold text-foreground">{item.value}</span>
+                </div>
+              ))}
             </div>
           </section>
 
@@ -693,36 +1030,121 @@ export function App() {
             </Button>
           </div>
 
-          <section className="relative mt-4 flex-1 overflow-hidden rounded-[2rem] border border-border">
-            <RealtimeTranscriber
-              onTranscript={handleTranscriberSubmit}
-              isSupported={recorder.isSupported}
-              bailianApiKey={bailianApiKey}
-            />
+          <section className="relative mt-4 flex-1 overflow-hidden rounded-lg border border-border bg-foreground" aria-busy={isVoiceBusy}>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,oklch(var(--primary)/0.12),transparent_15rem),linear-gradient(180deg,oklch(var(--foreground)),oklch(var(--foreground)/0.92))]" />
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-5">
+              <div className="flex max-w-sm flex-col items-center text-center">
+                <div className="mb-4 rounded-full border border-background/15 bg-background/12 px-3 py-1.5 text-xs font-semibold text-background/78 backdrop-blur">
+                  {isVoiceBusy ? (
+                    conversationPhase === "thinking" ? (
+                      <div className="flex items-center gap-2">
+                        <MorphingSpinner size="sm" className="!bg-background/80" />
+                        <ShimmeringText
+                          text={phaseCopy.status}
+                          startOnView={false}
+                          className="text-background"
+                          color="oklch(var(--primary-foreground) / 0.55)"
+                          shimmerColor="oklch(var(--primary-foreground))"
+                        />
+                      </div>
+                    ) : (
+                      <ShimmeringText
+                        text={phaseCopy.status}
+                        startOnView={false}
+                        className="text-background"
+                        color="oklch(var(--primary-foreground) / 0.55)"
+                        shimmerColor="oklch(var(--primary-foreground))"
+                      />
+                    )
+                  ) : (
+                    <span>{phaseCopy.status}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  data-space-talk-button
+                  className={cn(
+                    "pointer-events-auto grid h-24 w-24 place-items-center rounded-full border text-3xl shadow-[0_22px_70px_oklch(var(--foreground)/0.16)] transition duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30",
+                    conversationPhase === "recording"
+                      ? "recording-ring border-primary/30 bg-primary/88 text-primary-foreground backdrop-blur"
+                      : isVoiceBusy
+                        ? "border-accent/25 bg-accent/88 text-accent-foreground backdrop-blur"
+                        : "border-background/20 bg-card/74 text-foreground hover:scale-[1.03] backdrop-blur",
+                    isVoiceBusy && "cursor-wait",
+                  )}
+                  disabled={!recorder.isSupported || isVoiceBusy}
+                  onClick={handleCallButton}
+                  aria-label={phaseCopy.action}
+                >
+                  <i
+                    className={cn(
+                      conversationPhase === "recording"
+                        ? "ri-stop-fill"
+                        : isVoiceBusy
+                          ? "ri-loader-4-line animate-spin"
+                          : isCallActive
+                            ? "ri-mic-line"
+                            : "ri-phone-line",
+                    )}
+                  />
+                </button>
+                <h3 className="mt-5 text-2xl font-bold tracking-[-0.045em] text-background">
+                  {phaseCopy.title}
+                </h3>
+                <p className="mt-2 max-w-xs text-sm leading-6 text-background/68">
+                  {phaseCopy.description}
+                </p>
+                {(isVoiceBusy || conversationPhase === "recording") && (
+                  <div className="mt-4 h-1.5 w-56 overflow-hidden rounded-full bg-background/12">
+                    <div
+                      className="h-full rounded-full bg-primary-foreground transition-all duration-500"
+                      style={{ width: `${phaseProgress}%` }}
+                    />
+                  </div>
+                )}
+                <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                  {getCallSteps(locale).map((step) => (
+                    <div
+                      key={step.phase}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] backdrop-blur",
+                        step.phase === conversationPhase
+                          ? "border-primary/50 bg-primary/22 text-background"
+                          : "border-background/12 bg-background/8 text-background/54",
+                      )}
+                    >
+                      {step.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </section>
-
-          {ttsAudioUrl && (
-            <audio className="mt-3 w-full" src={ttsAudioUrl} controls />
-          )}
 
           <form className="mt-3 grid gap-2" onSubmit={submitAnswer}>
             <Textarea
-              className="h-20 rounded-[1.25rem] text-sm leading-6"
+              className="h-20 rounded-lg text-sm leading-6"
               value={typedAnswer}
               onChange={(event) => setTypedAnswer(event.target.value)}
               placeholder={t.placeholder}
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 flex-1 gap-2">
-                <input
-                  className="min-w-0 flex-1 rounded-2xl border border-border bg-card/60 px-3 py-2 text-xs"
-                  type="file"
-                  accept="audio/*"
-                  onChange={(event) =>
-                    recorder.setAudioFile(event.target.files?.[0] ?? null)
-                  }
-                  aria-label={t.uploadAudio}
-                />
+                <label className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg border border-border/85 bg-card/72 px-3 text-xs text-muted-foreground transition hover:border-primary/35 hover:bg-muted/35">
+                  <i className="ri-attachment-2" />
+                  <span className="truncate">
+                    {recorder.audioFile?.name ?? t.uploadAudio}
+                  </span>
+                  <input
+                    className="sr-only"
+                    type="file"
+                    accept="audio/*"
+                    onChange={(event) =>
+                      recorder.setAudioFile(event.target.files?.[0] ?? null)
+                    }
+                    aria-label={t.uploadAudio}
+                  />
+                </label>
                 <Button
                   type="button"
                   variant="secondary"
@@ -744,7 +1166,7 @@ export function App() {
                 ) : (
                   <i className="ri-send-plane-2-line" />
                 )}
-                {locale === "zh" ? "文字发送" : "Send text"}
+                {isAsking ? (locale === "zh" ? "正在追问" : "Sending") : locale === "zh" ? "发送" : "Send"}
               </Button>
             </div>
           </form>
@@ -752,9 +1174,11 @@ export function App() {
 
         {/* Right panel: Transcript & Book */}
         <section className="grid min-h-0 gap-4">
-          <Card className="animate-rise-in flex min-h-0 flex-col p-4 [animation-delay:180ms]">
+          <Card className="animate-rise-in flex min-h-0 flex-col p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:180ms]">
             <div className="flex items-center justify-between gap-4">
-              <Badge>{t.transcript}</Badge>
+              <h2 className="font-serif-cn text-xl font-bold tracking-normal">
+                {t.transcript}
+              </h2>
               <Button
                 variant="secondary"
                 size="sm"
@@ -771,7 +1195,7 @@ export function App() {
             </div>
             <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-auto pr-1">
               {session.turns.length === 1 ? (
-                <p className="rounded-3xl bg-muted/24 p-4 text-sm text-muted-foreground">
+                <p className="rounded-lg bg-card/58 p-4 text-sm text-muted-foreground">
                   {t.emptyTranscript}
                 </p>
               ) : (
@@ -779,9 +1203,9 @@ export function App() {
                   <article
                     key={turn.id}
                     className={cn(
-                      "rounded-3xl p-3 text-sm leading-6",
+                      "rounded-lg p-3 text-sm leading-6",
                       turn.role === "agent"
-                        ? "border border-border bg-background/48 text-muted-foreground"
+                        ? "bg-card/62 text-muted-foreground"
                         : "bg-foreground text-background",
                     )}
                   >
@@ -798,12 +1222,30 @@ export function App() {
                   </article>
                 ))
               )}
+              {isAsking && (
+                <article className="rounded-lg bg-card/62 p-3 text-sm leading-6 text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <MorphingSpinner size="sm" />
+                    <div>
+                      <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] opacity-70">
+                        {locale === "zh" ? "助手" : "Guide"}
+                      </p>
+                      <ShimmeringText
+                        text={locale === "zh" ? "正在整理下一句追问" : "Preparing the next question"}
+                        startOnView={false}
+                      />
+                    </div>
+                  </div>
+                </article>
+              )}
             </div>
           </Card>
 
-          <Card className="animate-rise-in min-h-0 p-4 [animation-delay:260ms]">
+          <Card className="animate-rise-in min-h-0 p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:260ms]">
             <div className="flex items-center justify-between gap-3">
-              <Badge>{bookDraft ? t.bookReady : t.chapterPlan}</Badge>
+              <h2 className="font-serif-cn text-xl font-bold tracking-normal">
+                {bookDraft ? t.bookReady : t.chapterPlan}
+              </h2>
               {bookDraft && (
                 <Button variant="secondary" size="sm" onClick={() => setIsBookOpen(true)}>
                   <i className="ri-book-open-line" />
@@ -811,7 +1253,15 @@ export function App() {
                 </Button>
               )}
             </div>
-            {bookDraft ? (
+            {isGenerating ? (
+              <div className="mt-3 grid gap-2">
+                <div className="h-16 rounded-lg bg-card/58" />
+                <div className="h-14 rounded-lg bg-card/42" />
+                <p className="text-sm text-muted-foreground">
+                  {locale === "zh" ? "正在把访谈整理成章节，请稍等。" : "Turning the interview into chapters."}
+                </p>
+              </div>
+            ) : bookDraft ? (
               <div className="mt-3 max-h-64 space-y-3 overflow-auto pr-1">
                 <div>
                   <h3 className="font-serif-cn text-2xl font-bold">
@@ -829,7 +1279,7 @@ export function App() {
                 {bookDraft.chapters.slice(0, 3).map((chapter) => (
                   <div
                     key={chapter.title}
-                    className="rounded-3xl border border-border bg-background/42 p-3"
+                    className="rounded-lg bg-card/62 p-3"
                   >
                     <p className="font-semibold">{chapter.title}</p>
                     <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
@@ -847,7 +1297,7 @@ export function App() {
                 {session.insights.map((insight) => (
                   <div
                     key={insight.label}
-                    className="rounded-3xl border border-border bg-background/42 p-3"
+                    className="rounded-lg bg-card/62 p-3"
                   >
                     <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       {insight.label}
@@ -864,7 +1314,7 @@ export function App() {
               </div>
             )}
             {error && (
-              <p className="mt-3 rounded-2xl bg-primary/10 p-3 text-sm text-primary">
+              <p className="mt-3 rounded-lg bg-primary/10 p-3 text-sm text-primary">
                 {error}
               </p>
             )}
@@ -926,149 +1376,67 @@ export function App() {
   );
 }
 
-function LoginScreen({
-  locale,
-  isDark,
-  error,
-  onLogin,
-  onToggleTheme,
-  onToggleLocale,
-}: {
-  locale: Locale;
-  isDark: boolean;
-  error: string;
-  onLogin: (event: FormEvent<HTMLFormElement>) => void;
-  onToggleTheme: () => void;
-  onToggleLocale: () => void;
-}) {
+/* ─── Protected Route wrapper ─── */
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = localStorage.getItem("membook.auth") === "admin";
+  if (!isAuthenticated) {
+    window.location.href = "/login";
+    return null;
+  }
+  return <>{children}</>;
+}
+
+/* ─── Router root ─── */
+export function App() {
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-6">
-      <div className="pointer-events-none absolute left-1/2 top-10 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/14 blur-3xl" />
-      <Card className="relative z-10 w-full max-w-md p-5">
-        <div className="flex items-center justify-between">
-          <Badge>{locale === "zh" ? "管理员登录" : "Admin login"}</Badge>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="icon" onClick={onToggleLocale}>
-              <i className="ri-translate-2" />
-            </Button>
-            <Button variant="secondary" size="icon" onClick={onToggleTheme}>
-              <i className={isDark ? "ri-sun-line" : "ri-moon-line"} />
-            </Button>
-          </div>
-        </div>
-        <h1 className="mt-6 font-serif-cn text-4xl font-bold tracking-[-0.05em]">
-          {locale === "zh" ? "星光回忆录工作台" : "Starlight Memoir Studio"}
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          {locale === "zh"
-            ? "暂时锁定单管理员账号：admin / 12345678。登录后可管理访谈历史和回忆录。"
-            : "Temporary single admin account: admin / 12345678. Sign in to manage sessions and books."}
-        </p>
-        <form className="mt-6 grid gap-3" onSubmit={onLogin}>
-          <Field
-            label={locale === "zh" ? "账号" : "Username"}
-            name="username"
-            value={undefined}
-            placeholder="admin"
-          />
-          <Field
-            label={locale === "zh" ? "密码" : "Password"}
-            name="password"
-            type="password"
-            value={undefined}
-            placeholder="12345678"
-          />
-          {error && (
-            <p className="rounded-2xl bg-primary/10 p-3 text-sm text-primary">
-              {error}
-            </p>
-          )}
-          <Button type="submit" size="lg" className="mt-2">
-            <i className="ri-login-circle-line" />
-            {locale === "zh" ? "进入工作台" : "Enter studio"}
-          </Button>
-        </form>
-      </Card>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<LandingPage />}
+        />
+        <Route
+          path="/login"
+          element={
+            <LoginPage
+              onLogin={() => (window.location.href = "/studio")}
+            />
+          }
+        />
+        <Route
+          path="/book/:id"
+          element={
+            <ProtectedRoute>
+              <BookReaderPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/studio"
+          element={
+            <ProtectedRoute>
+              <StudioPage
+                onLogout={() => (window.location.href = "/")}
+              />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <ProtectedRoute>
+              <StudioPage
+                onLogout={() => (window.location.href = "/")}
+              />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
-function HistoryDialog({
-  history,
-  locale,
-  onClose,
-  onLoad,
-  onDelete,
-  onNew,
-}: {
-  history: SavedMemoir[];
-  locale: Locale;
-  onClose: () => void;
-  onLoad: (item: SavedMemoir) => void;
-  onDelete: (id: string) => void;
-  onNew: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl">
-      <div className="max-h-[88vh] w-full max-w-3xl overflow-auto rounded-[2rem] border border-border bg-card p-5 shadow-[0_32px_120px_hsl(220_30%_4%/0.28)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Badge>{locale === "zh" ? "历史管理" : "History"}</Badge>
-            <h3 className="mt-3 text-2xl font-bold tracking-[-0.04em]">
-              {locale === "zh" ? "访谈与回忆录历史" : "Sessions and memoirs"}
-            </h3>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                onNew();
-                onClose();
-              }}
-            >
-              <i className="ri-add-line" />
-              {locale === "zh" ? "新建" : "New"}
-            </Button>
-            <Button variant="secondary" size="icon" onClick={onClose}>
-              <i className="ri-close-line" />
-            </Button>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-3">
-          {history.length === 0 ? (
-            <p className="rounded-3xl border border-border bg-background/44 p-5 text-sm text-muted-foreground">
-              {locale === "zh" ? "还没有历史记录。完成一次访谈或生成书稿后会自动保存。" : "No history yet. Sessions are saved after an interview or book generation."}
-            </p>
-          ) : (
-            history.map((item) => (
-              <article
-                key={item.id}
-                className="grid gap-3 rounded-3xl border border-border bg-background/44 p-4 sm:grid-cols-[1fr_auto]"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{item.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(item.updatedAt).toLocaleString()} · {item.session.turns.length} turns · {item.bookDraft ? (locale === "zh" ? "已有书稿" : "Book ready") : (locale === "zh" ? "未成书" : "No book yet")}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => onLoad(item)}>
-                    <i className="ri-folder-open-line" />
-                    {locale === "zh" ? "打开" : "Open"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => onDelete(item.id)}>
-                    <i className="ri-delete-bin-line" />
-                  </Button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ─── Shared sub-components (used by both StudioPage and BookReaderPage) ─── */
 
 function BookReader({
   book,
@@ -1085,7 +1453,7 @@ function BookReader({
   const right = pages[pageIndex + 1];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-[radial-gradient(circle_at_50%_18%,hsl(var(--primary)/0.18),transparent_30rem),hsl(var(--foreground)/0.42)] px-4 py-5 backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 overflow-auto bg-[radial-gradient(circle_at_50%_18%,oklch(var(--primary)/0.18),transparent_30rem),oklch(var(--foreground)/0.42)] px-4 py-5 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
         <Badge className="bg-card/80">
           {book.pipeline
@@ -1120,7 +1488,7 @@ function BookReader({
       </div>
 
       <div className="mx-auto mt-5 max-w-6xl [perspective:1800px]">
-        <div className="relative grid min-h-[72vh] gap-0 rounded-[2rem] bg-[#3b261a] p-4 shadow-[0_42px_140px_hsl(25_30%_4%/0.45)] md:grid-cols-2">
+        <div className="relative grid min-h-[72vh] gap-0 rounded-lg bg-[#3b261a] p-4 shadow-[0_42px_140px_hsl(25_30%_4%/0.45)] md:grid-cols-2">
           <BookPage page={left} side="left" />
           <BookPage page={right} side="right" />
           <div className="pointer-events-none absolute inset-y-4 left-1/2 hidden w-8 -translate-x-1/2 bg-gradient-to-r from-black/24 via-white/16 to-black/24 blur-sm md:block" />
@@ -1232,35 +1600,35 @@ function getPhaseCopy(phase: ConversationPhase, locale: Locale) {
       status: "可以说话",
       action: "开始录音",
       title: "现在轮到您说",
-      description: "点一下麦克风开始说，讲完再点一次，系统会自动识别并追问。",
+      description: "点一下麦克风，或按空格开始说；讲完再点一次或再按空格，系统会自动识别、追问并继续衔接。",
     },
     recording: {
       badge: "正在听",
       status: "正在听你说",
       action: "停止录音",
       title: "我在听，慢慢说",
-      description: "讲完这一段后点停止，不需要再点转文字或发送。",
+      description: "讲完这一段后点停止，或再按一次空格，不需要再点转文字或发送。",
     },
     transcribing: {
       badge: "识别中",
       status: "正在转成文字",
       action: "正在识别",
       title: "正在整理刚才的话",
-      description: "语音正在交给百炼识别，完成后会自动发送给访谈助手。",
+      description: "识别完成后会自动继续，不需要再点发送。",
     },
     thinking: {
       badge: "思考中",
       status: "AI 正在思考下一问",
       action: "正在思考",
       title: "正在想一个更贴近的追问",
-      description: "本地 nanoPencil agent 正在根据刚才的回答组织下一句。",
+      description: "系统会先整理追问，再自动朗读，接着继续听您说。",
     },
     speaking: {
       badge: "朗读中",
       status: "正在朗读回复",
       action: "正在朗读",
       title: "AI 正在说话",
-      description: "请听完这一句，再继续回答。若浏览器拦截自动播放，下方播放器可手动播放。",
+      description: "请听完这一句。朗读结束后会自动继续听您说；若浏览器拦截自动播放，请先点一次朗读。",
     },
     error: {
       badge: "需要处理",
@@ -1284,35 +1652,35 @@ function getPhaseCopy(phase: ConversationPhase, locale: Locale) {
       status: "Ready for your voice",
       action: "Start recording",
       title: "Your turn to speak",
-      description: "Tap the mic, speak naturally, then tap again. The rest runs automatically.",
+      description: "Tap the mic or press Space to speak, then tap again or press Space once more for the next step.",
     },
     recording: {
       badge: "Listening",
       status: "Listening to you",
       action: "Stop recording",
       title: "I am listening",
-      description: "When this memory is complete, stop recording. No extra send step is needed.",
+      description: "When this memory is complete, stop recording or press Space again. No send step is needed.",
     },
     transcribing: {
       badge: "Transcribing",
       status: "Converting speech to text",
       action: "Transcribing",
       title: "Turning voice into text",
-      description: "Bailian ASR is processing the audio and will send it to the guide automatically.",
+      description: "The answer will continue automatically after recognition finishes.",
     },
     thinking: {
       badge: "Thinking",
       status: "AI is preparing the next question",
       action: "Thinking",
       title: "Preparing a better follow-up",
-      description: "The local nanoPencil agent is reading the answer and choosing the next prompt.",
+      description: "The guide prepares a follow-up, reads it aloud, then continues listening.",
     },
     speaking: {
       badge: "Speaking",
       status: "Reading the response",
       action: "Speaking",
       title: "The guide is speaking",
-      description: "Listen first, then continue. If autoplay is blocked, use the player below.",
+      description: "Listen first. Recording resumes automatically after reading unless autoplay is blocked.",
     },
     error: {
       badge: "Needs attention",
@@ -1324,6 +1692,19 @@ function getPhaseCopy(phase: ConversationPhase, locale: Locale) {
   };
 
   return locale === "zh" ? zh[phase] : en[phase];
+}
+
+function getPhaseProgress(phase: ConversationPhase) {
+  const progress: Record<ConversationPhase, number> = {
+    idle: 0,
+    ready: 18,
+    recording: 38,
+    transcribing: 58,
+    thinking: 78,
+    speaking: 92,
+    error: 100,
+  };
+  return progress[phase];
 }
 
 function getCallSteps(locale: Locale) {
@@ -1342,13 +1723,142 @@ function getCallSteps(locale: Locale) {
       ];
 }
 
+function getRhythmItems(locale: Locale, elderTurnCount: number, readiness: number) {
+  if (locale === "zh") {
+    return [
+      {
+        label: "已收集片段",
+        value: elderTurnCount > 0 ? `${elderTurnCount} 段` : "等待开讲",
+      },
+      {
+        label: "下一步",
+        value: readiness >= 70 ? "适合成书" : "继续追问",
+      },
+      {
+        label: "当前氛围",
+        value: readiness >= 40 ? "故事展开中" : "温和开场",
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "Collected",
+      value: elderTurnCount > 0 ? `${elderTurnCount} parts` : "Waiting",
+    },
+    {
+      label: "Next",
+      value: readiness >= 70 ? "Draft ready" : "Keep asking",
+    },
+    {
+      label: "Tone",
+      value: readiness >= 40 ? "Opening up" : "Gentle start",
+    },
+  ];
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-background/44 p-3">
+    <div className="rounded-lg bg-background/50 p-3">
       <p className="truncate text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
       <p className="mt-1 truncate text-lg font-bold">{value}</p>
+    </div>
+  );
+}
+
+function HistoryDialog({
+  history,
+  locale,
+  onClose,
+  onLoad,
+  onDelete,
+  onNew,
+}: {
+  history: SavedMemoir[];
+  locale: Locale;
+  onClose: () => void;
+  onLoad: (item: SavedMemoir) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
+}) {
+  const navigate = useNavigate();
+
+  function handleOpenBook(item: SavedMemoir) {
+    if (item.bookDraft) {
+      navigate(`/book/${item.id}`);
+    } else {
+      onLoad(item);
+    }
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl">
+      <div className="max-h-[88vh] w-full max-w-3xl overflow-auto rounded-lg border border-border bg-card p-5 shadow-[0_32px_120px_hsl(220_30%_4%/0.28)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Badge>{locale === "zh" ? "历史管理" : "History"}</Badge>
+            <h3 className="mt-3 text-2xl font-bold tracking-[-0.04em]">
+              {locale === "zh" ? "访谈与回忆录历史" : "Sessions and memoirs"}
+            </h3>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                onNew();
+                onClose();
+              }}
+            >
+              <i className="ri-add-line" />
+              {locale === "zh" ? "新建" : "New"}
+            </Button>
+            <Button variant="secondary" size="icon" onClick={onClose}>
+              <i className="ri-close-line" />
+            </Button>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3">
+          {history.length === 0 ? (
+            <p className="rounded-lg border border-border bg-background/44 p-5 text-sm text-muted-foreground">
+              {locale === "zh" ? "还没有历史记录。完成一次访谈或生成书稿后会自动保存。" : "No history yet. Sessions are saved after an interview or book generation."}
+            </p>
+          ) : (
+            history.map((item) => (
+              <article
+                key={item.id}
+                className="grid gap-3 rounded-lg border border-border bg-background/44 p-4 sm:grid-cols-[1fr_auto]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{item.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {new Date(item.updatedAt).toLocaleString()} · {item.session.turns.length} turns · {item.bookDraft ? (locale === "zh" ? "已有书稿" : "Book ready") : (locale === "zh" ? "未成书" : "No book yet")}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {item.bookDraft ? (
+                    <Button variant="secondary" size="sm" onClick={() => handleOpenBook(item)}>
+                      <i className="ri-book-open-line" />
+                      {locale === "zh" ? "看这本书" : "Read"}
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" size="sm" onClick={() => onLoad(item)}>
+                      <i className="ri-folder-open-line" />
+                      {locale === "zh" ? "加载" : "Load"}
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => onDelete(item.id)}>
+                    <i className="ri-delete-bin-line" />
+                  </Button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1398,7 +1908,7 @@ function SettingsDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-[2rem] border border-border bg-card p-5 shadow-[0_32px_120px_hsl(220_30%_4%/0.28)]">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-5 shadow-[0_32px_120px_hsl(220_30%_4%/0.28)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <Badge>{t.settingsTitle}</Badge>
@@ -1416,7 +1926,7 @@ function SettingsDialog({
 
         <div className="mt-5 grid gap-4">
           {/* Connection status */}
-          <div className="rounded-3xl border border-border bg-background/42 p-3">
+          <div className="rounded-lg border border-border bg-background/42 p-3">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {t.connectionStatus}
             </p>
@@ -1435,7 +1945,7 @@ function SettingsDialog({
           </div>
 
           {/* Interface controls */}
-          <div className="rounded-3xl border border-border bg-background/42 p-3">
+          <div className="rounded-lg border border-border bg-background/42 p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {t.interface}
             </p>
@@ -1527,7 +2037,7 @@ function Field({
         {label}
       </span>
       <input
-        className="h-11 w-full rounded-2xl border border-border bg-background/70 px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+        className="h-11 w-full rounded-lg border border-border bg-background/70 px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
         name={name}
         type={type}
         placeholder={placeholder}
