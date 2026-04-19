@@ -20,7 +20,6 @@ const bailianModel = "fun-asr-realtime-2026-02-28";
 const bailianFiletransModel = "qwen3-asr-flash-filetrans";
 const bailianTtsModel = "qwen3-tts-instruct-flash-realtime";
 const defaultFunAsrEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
-const defaultBailianEndpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const defaultBailianTtsEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
 
 // 云端后端地址（Spring Boot + Runtime-Service）
@@ -303,7 +302,7 @@ async function parseImportWithNanoPencil(text: string) {
         .map((t) => ({ role: (t.role === "agent" || t.role === "elder") ? t.role : "elder", content: t.content!.trim() }));
       return { turns };
     }
-  } catch {}
+  } catch { /* ignore */ }
   return localImportParse(text);
 }
 

@@ -205,7 +205,7 @@ export async function synthesizeWithBailian(input: {
     return new Promise<void>((resolvePromise, reject) => {
       const ws = new WebSocket(url, { headers: { Authorization: `Bearer ${input.apiKey}`, "OpenAI-Beta": "realtime=v1" } });
       let closed = false;
-      const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error("Bailian TTS timed out")); }, 60000);
+      const timer = setTimeout(() => { try { ws.close(); } catch { /* ignore */ } reject(new Error("Bailian TTS timed out")); }, 60000);
 
       function cleanup() {
         if (!closed) { closed = true; try { ws.close(); } catch { /* already closed */ } }

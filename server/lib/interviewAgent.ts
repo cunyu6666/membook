@@ -110,7 +110,8 @@ function buildMemoirPipelinePrompt(session: Session) {
   ].join("\n");
 }
 
-function buildInterviewPrompt(session: Session, answer: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _buildInterviewPrompt(session: Session, answer: string) {
   const transcript = session.turns.slice(-10).map((turn) => `${turn.role === "agent" ? "Interviewer" : "Elder"}: ${turn.content}`).join("\n");
   return [
     "You are conducting an oral-history interview with an elder to help create a family memoir.",
