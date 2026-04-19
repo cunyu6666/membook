@@ -9,7 +9,7 @@ import type { Locale } from "../../lib/i18n";
 export function BookReaderPage() {
   const { id: bookId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [locale] = useState<Locale>("zh");
+  const [locale] = useState<Locale>(() => (localStorage.getItem("membook.locale") as Locale) || "zh");
   const [book, setBook] = useState<BookDraft | null>(null);
 
   useEffect(() => {

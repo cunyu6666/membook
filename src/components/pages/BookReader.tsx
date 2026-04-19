@@ -12,7 +12,7 @@ import { Card } from "../../components/ui/Card";
 import { cn } from "../../lib/utils";
 import { buildBookPages, markdownToPlainText } from "../../lib/bookFormat";
 import type { BookDraft } from "../../lib/types";
-import type { Locale } from "../../lib/i18n";
+import type { Locale, CopyKeys } from "../../lib/i18n";
 import { copy } from "../../lib/i18n";
 import type { SavedMemoir } from "../../lib/session";
 import type { ApiStatus } from "../../lib/types";
@@ -356,7 +356,7 @@ export function SettingsDialog({
   ttsVoice: string;
   isDark: boolean;
   locale: Locale;
-  t: Record<string, string>;
+  t: CopyKeys;
   onClose: () => void;
   onToggleTheme: () => void;
   onToggleLocale: () => void;
