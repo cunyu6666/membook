@@ -10,7 +10,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Metric, ConnectionLine } from "./BookReader";
 import type { ApiStatus, InterviewSession } from "../../lib/types";
-import type { Locale } from "../../lib/i18n";
+import type { Locale, CopyKeys } from "../../lib/i18n";
 import { getRhythmItems } from "../../lib/phaseCopy";
 
 export function StudioLeftPanel({
@@ -30,7 +30,7 @@ export function StudioLeftPanel({
   onImportDialog,
 }: {
   locale: Locale;
-  t: Record<string, unknown>;
+  t: CopyKeys;
   session: InterviewSession;
   isDark: boolean;
   apiStatus: ApiStatus | null;
@@ -56,7 +56,7 @@ export function StudioLeftPanel({
             className="h-10 w-10 rounded-[6px]"
           />
           <div>
-            <p className="text-lg font-bold">{String(t.appName)}</p>
+            <p className="text-lg font-bold">{t.appName}</p>
           </div>
         </div>
         <div className="grid grid-cols-6 gap-2">
@@ -69,10 +69,10 @@ export function StudioLeftPanel({
           <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "导入对话" : "Import"} onClick={onImportDialog}>
             <i className="ri-file-upload-line" />
           </Button>
-          <Button variant="secondary" size="icon" aria-label={String(t.theme)} onClick={onToggleDark}>
+          <Button variant="secondary" size="icon" aria-label={t.theme} onClick={onToggleDark}>
             <i className={isDark ? "ri-sun-line" : "ri-moon-line"} />
           </Button>
-          <Button variant="secondary" size="icon" aria-label={String(t.settings)} onClick={onOpenSettings}>
+          <Button variant="secondary" size="icon" aria-label={t.settings} onClick={onOpenSettings}>
             <i className="ri-settings-3-line" />
           </Button>
           <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "退出登录" : "Log out"} onClick={onLogout}>
@@ -83,13 +83,13 @@ export function StudioLeftPanel({
 
       <section className="rounded-lg bg-[linear-gradient(145deg,oklch(var(--primary)),oklch(var(--accent)))] p-6 text-background shadow-[inset_0_1px_0_oklch(var(--primary-foreground)/0.18)]">
         <Badge className="border-background/20 bg-background/10 text-background/80">
-          {String(t.compactHint)}
+          {t.compactHint}
         </Badge>
         <h1 className="mt-4 text-2xl font-bold leading-tight text-background">
-          {String(t.heroTitle)}
+          {t.heroTitle}
         </h1>
         <p className="mt-3 text-sm leading-6 text-background/75">
-          {String(t.heroBody)}
+          {t.heroBody}
         </p>
       </section>
 
@@ -97,14 +97,14 @@ export function StudioLeftPanel({
         <div className="rounded-lg bg-background/52 p-3 shadow-[inset_0_1px_0_oklch(var(--primary-foreground)/0.22)]">
           <ConnectionLine
             items={[
-              { label: String(t.connService), active: Boolean(apiStatus) },
+              { label: t.connService, active: Boolean(apiStatus) },
               {
-                label: String(t.connAssistant),
+                label: t.connAssistant,
                 active: apiStatus?.mode === "rpc" || apiStatus?.mode === "acp",
               },
-              { label: String(t.connRecognition), active: Boolean(bailianApiKey && bailianEndpoint) },
+              { label: t.connRecognition, active: Boolean(bailianApiKey && bailianEndpoint) },
               {
-                label: String(t.connReading),
+                label: t.connReading,
                 active: Boolean(bailianApiKey && bailianTtsEndpoint),
               },
               {
@@ -137,8 +137,8 @@ export function StudioLeftPanel({
       </section>
 
       <div className="mt-auto grid grid-cols-3 gap-2">
-        <Metric label={String(t.readiness)} value={`${session.readiness}%`} />
-        <Metric label={String(t.rawMaterial)} value={`${elderTurns.length}`} />
+        <Metric label={t.readiness} value={`${session.readiness}%`} />
+        <Metric label={t.rawMaterial} value={`${elderTurns.length}`} />
         <Metric label={locale === "zh" ? "对话" : "turns"} value={`${session.turns.length}`} />
       </div>
     </Card>

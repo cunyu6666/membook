@@ -12,7 +12,7 @@ import { Textarea } from "../ui/Textarea";
 import { ShimmeringText } from "../ui/shimmering-text";
 import { MorphingSpinner } from "../ui/morphing-spinner";
 import { cn } from "../../lib/utils";
-import type { Locale } from "../../lib/i18n";
+import type { Locale, CopyKeys } from "../../lib/i18n";
 import type { ConversationPhase } from "../../lib/phaseCopy";
 import { getCallSteps, getPhaseProgress } from "../../lib/phaseCopy";
 
@@ -40,7 +40,7 @@ export function StudioCenterPanel({
   onSubmit,
 }: {
   locale: Locale;
-  t: Record<string, unknown>;
+  t: CopyKeys;
   isCallActive: boolean;
   conversationPhase: ConversationPhase;
   latestAgentQuestion: string;
@@ -67,7 +67,7 @@ export function StudioCenterPanel({
     <Card className="animate-rise-in flex min-h-0 flex-col overflow-hidden p-4 [animation-delay:100ms]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Badge>{isCallActive ? phaseCopy.badge : String(t.agent)}</Badge>
+          <Badge>{isCallActive ? phaseCopy.badge : t.agent}</Badge>
           <h2 className="mt-3 font-serif-cn text-xl font-bold leading-snug tracking-tight lg:text-2xl">
             {latestAgentQuestion}
           </h2>
@@ -77,7 +77,7 @@ export function StudioCenterPanel({
           size="icon"
           disabled={!bailianApiKey || isSpeaking}
           onClick={onSpeakQuestion}
-          aria-label={String(t.playQuestion)}
+          aria-label={t.playQuestion}
         >
           <i className={isSpeaking ? "ri-loader-4-line animate-spin" : "ri-volume-up-line"} />
         </Button>
@@ -176,21 +176,21 @@ export function StudioCenterPanel({
           className="h-20 rounded-lg text-sm leading-6"
           value={typedAnswer}
           onChange={(event) => onTextChange(event.target.value)}
-          placeholder={String(t.placeholder)}
+          placeholder={t.placeholder}
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 gap-2">
             <label className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg border border-border/85 bg-card/72 px-3 text-xs text-muted-foreground transition hover:border-primary/35 hover:bg-muted/35">
               <i className="ri-attachment-2" />
               <span className="truncate">
-                {recorder.audioFile?.name ?? String(t.uploadAudio)}
+                {recorder.audioFile?.name ?? t.uploadAudio}
               </span>
               <input
                 className="sr-only"
                 type="file"
                 accept="audio/*"
                 onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-                aria-label={String(t.uploadAudio)}
+                aria-label={t.uploadAudio}
               />
             </label>
             <Button
@@ -205,7 +205,7 @@ export function StudioCenterPanel({
               ) : (
                 <i className="ri-text" />
               )}
-              {String(t.transcribe)}
+              {t.transcribe}
             </Button>
           </div>
           <Button type="submit" size="sm" disabled={!answerText || isAsking}>
