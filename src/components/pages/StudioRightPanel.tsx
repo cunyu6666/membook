@@ -4,6 +4,7 @@
  * [TO]: 被 StudioPage.tsx 消费，作为工作台三大面板之一
  * [HERE]: src/components/pages/StudioRightPanel.tsx，访谈记录与成书入口
  */
+import { useState } from "react";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { MorphingSpinner } from "../ui/morphing-spinner";
@@ -22,6 +23,8 @@ export function StudioRightPanel({
   error,
   onGenerateBook,
   onOpenBook,
+  onUpdateTurn,
+  onDeleteTurn,
 }: {
   locale: Locale;
   t: Record<string, unknown>;
@@ -33,7 +36,30 @@ export function StudioRightPanel({
   error: string;
   onGenerateBook: () => void;
   onOpenBook: () => void;
+  onUpdateTurn: (turnId: string, newContent: string) => void;
+  onDeleteTurn: (turnId: string) => void;
 }) {
+  const [editingTurnId, setEditingTurnId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+
+  function startEditing(turn: InterviewTurn) {
+    setEditingTurnId(turn.id);
+    setEditingContent(turn.content);
+  }
+
+  function cancelEditing() {
+    setEditingTurnId(null);
+    setEditingContent("");
+  }
+
+  function saveEditing(turnId: string) {
+    if (editingContent.trim()) {
+      onUpdateTurn(turnId, editingContent.trim());
+    }
+    setEditingTurnId(null);
+    setEditingContent("");
+  }
+
   return (
     <section className="grid min-h-0 gap-4">
       <Card className="animate-rise-in flex min-h-0 flex-col p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:180ms]">
@@ -65,7 +91,7 @@ export function StudioRightPanel({
               <article
                 key={turn.id}
                 className={cn(
-                  "rounded-lg p-3 text-sm leading-6",
+                  "group relative rounded-lg p-3 text-sm leading-6",
                   turn.role === "agent"
                     ? "bg-card/62 text-muted-foreground"
                     : "bg-foreground text-background",
@@ -76,7 +102,47 @@ export function StudioRightPanel({
                     ? locale === "zh" ? "助手" : "Guide"
                     : locale === "zh" ? "长辈" : "Elder"}
                 </p>
-                {turn.content}
+                {editingTurnId === turn.id ? (
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full resize-none rounded bg-background/20 p-2 text-inherit"
+                      rows={3}
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => saveEditing(turn.id)}>
+                        {locale === "zh" ? "保存" : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelEditing}>
+                        {locale === "zh" ? "取消" : "Cancel"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="whitespace-pre-wrap">{turn.content}</p>
+                    {turn.role === "elder" && (
+                      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          className="rounded p-1 hover:bg-black/10"
+                          onClick={() => startEditing(turn)}
+                          title={locale === "zh" ? "编辑" : "Edit"}
+                        >
+                          <i className="ri-edit-line text-xs" />
+                        </button>
+                        <button
+                          className="rounded p-1 hover:bg-black/10"
+                          onClick={() => onDeleteTurn(turn.id)}
+                          title={locale === "zh" ? "删除" : "Delete"}
+                        >
+                          <i className="ri-delete-bin-line text-xs" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </article>
             ))
           )}

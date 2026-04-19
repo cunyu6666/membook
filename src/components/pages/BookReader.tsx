@@ -124,6 +124,8 @@ export function HistoryDialog({
   onLoad,
   onDelete,
   onNew,
+  onRename,
+  onClone,
 }: {
   history: SavedMemoir[];
   locale: Locale;
@@ -131,8 +133,36 @@ export function HistoryDialog({
   onLoad: (item: SavedMemoir) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
+  onRename: (id: string, newTitle: string) => void;
+  onClone: (item: SavedMemoir) => void;
 }) {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const filteredHistory = history.filter((item) =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  function startEditing(item: SavedMemoir) {
+    setEditingId(item.id);
+    setEditingTitle(item.title);
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditingTitle("");
+  }
+
+  function saveEditing(id: string) {
+    if (editingTitle.trim()) {
+      onRename(id, editingTitle.trim());
+    }
+    setEditingId(null);
+    setEditingTitle("");
+  }
 
   function handleOpenBook(item: SavedMemoir) {
     if (item.bookDraft) {
@@ -170,39 +200,120 @@ export function HistoryDialog({
             </Button>
           </div>
         </div>
+
+        {/* Search */}
+        <div className="mt-4">
+          <input
+            type="text"
+            placeholder={locale === "zh" ? "搜索会话标题..." : "Search by title..."}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+          />
+        </div>
+
         <div className="mt-5 grid gap-3">
-          {history.length === 0 ? (
+          {filteredHistory.length === 0 ? (
             <p className="rounded-lg border border-border bg-background/44 p-5 text-sm text-muted-foreground">
-              {locale === "zh" ? "还没有历史记录。完成一次访谈或生成书稿后会自动保存。" : "No history yet. Sessions are saved after an interview or book generation."}
+              {history.length === 0
+                ? (locale === "zh" ? "还没有历史记录。完成一次访谈或生成书稿后会自动保存。" : "No history yet. Sessions are saved after an interview or book generation.")
+                : (locale === "zh" ? "没有找到匹配的会话。" : "No matching sessions found.")}
             </p>
           ) : (
-            history.map((item) => (
+            filteredHistory.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-3 rounded-lg border border-border bg-background/44 p-4 sm:grid-cols-[1fr_auto]"
+                className="group grid gap-3 rounded-lg border border-border bg-background/44 p-4 sm:grid-cols-[1fr_auto]"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{item.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(item.updatedAt).toLocaleString()} · {item.session.turns.length} turns · {item.bookDraft ? (locale === "zh" ? "已有书稿" : "Book ready") : (locale === "zh" ? "未成书" : "No book yet")}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {item.bookDraft ? (
-                    <Button variant="secondary" size="sm" onClick={() => handleOpenBook(item)}>
-                      <i className="ri-book-open-line" />
-                      {locale === "zh" ? "看这本书" : "Read"}
-                    </Button>
+                  {editingId === item.id ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        className="flex-1 rounded border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEditing(item.id);
+                          if (e.key === "Escape") cancelEditing();
+                        }}
+                      />
+                      <Button size="sm" onClick={() => saveEditing(item.id)}>
+                        {locale === "zh" ? "保存" : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelEditing}>
+                        {locale === "zh" ? "取消" : "Cancel"}
+                      </Button>
+                    </div>
                   ) : (
-                    <Button variant="secondary" size="sm" onClick={() => onLoad(item)}>
-                      <i className="ri-folder-open-line" />
-                      {locale === "zh" ? "加载" : "Load"}
-                    </Button>
+                    <>
+                      <p className="truncate font-semibold">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {new Date(item.updatedAt).toLocaleString()} · {item.session.turns.length} turns · {item.bookDraft ? (locale === "zh" ? "已有书稿" : "Book ready") : (locale === "zh" ? "未成书" : "No book yet")}
+                      </p>
+                    </>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => onDelete(item.id)}>
-                    <i className="ri-delete-bin-line" />
-                  </Button>
                 </div>
+                {editingId !== item.id && (
+                  <div className="flex gap-2">
+                    {item.bookDraft ? (
+                      <Button variant="secondary" size="sm" onClick={() => handleOpenBook(item)}>
+                        <i className="ri-book-open-line" />
+                        {locale === "zh" ? "看这本书" : "Read"}
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" size="sm" onClick={() => onLoad(item)}>
+                        <i className="ri-folder-open-line" />
+                        {locale === "zh" ? "加载" : "Load"}
+                      </Button>
+                    )}
+                    <button
+                      className="rounded p-1.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/10"
+                      onClick={() => startEditing(item)}
+                      title={locale === "zh" ? "重命名" : "Rename"}
+                    >
+                      <i className="ri-edit-line text-sm" />
+                    </button>
+                    <button
+                      className="rounded p-1.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/10"
+                      onClick={() => onClone(item)}
+                      title={locale === "zh" ? "复制" : "Clone"}
+                    >
+                      <i className="ri-file-copy-line text-sm" />
+                    </button>
+                    {deleteConfirmId === item.id ? (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => {
+                            onDelete(item.id);
+                            setDeleteConfirmId(null);
+                          }}
+                        >
+                          {locale === "zh" ? "确认" : "Yes"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteConfirmId(null)}
+                        >
+                          {locale === "zh" ? "取消" : "No"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        className="rounded p-1.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/10"
+                        onClick={() => setDeleteConfirmId(item.id)}
+                        title={locale === "zh" ? "删除" : "Delete"}
+                      >
+                        <i className="ri-delete-bin-line text-sm" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </article>
             ))
           )}

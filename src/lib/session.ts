@@ -61,3 +61,17 @@ export function makeHistoryTitle(session: InterviewSession, locale: Locale): str
   }
   return firstAnswer.slice(0, 18) + (firstAnswer.length > 18 ? "..." : "");
 }
+
+export function cloneMemoir(memoir: SavedMemoir): SavedMemoir {
+  return {
+    ...memoir,
+    id: crypto.randomUUID(),
+    title: `${memoir.title} (copy)`,
+    updatedAt: new Date().toISOString(),
+    session: {
+      ...memoir.session,
+      id: crypto.randomUUID(),
+      turns: memoir.session.turns.map((turn) => ({ ...turn, id: crypto.randomUUID() })),
+    },
+  };
+}
