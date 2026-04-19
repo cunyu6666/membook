@@ -10,6 +10,7 @@ import { Badge } from "./components/ui/Badge";
 import { Button } from "./components/ui/Button";
 import { Card } from "./components/ui/Card";
 import { Textarea } from "./components/ui/Textarea";
+import { RealtimeTranscriber } from "./components/ui/RealtimeTranscriber";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { askAgent, generateBook, getApiStatus } from "./lib/agentClient";
 import { transcribeWithBailian } from "./lib/asrClient";
@@ -127,6 +128,7 @@ export function App() {
     () => localStorage.getItem("membook.bailianTtsVoice") ?? "Cherry",
   );
   const [error, setError] = useState("");
+  const [transcriberText, setTranscriberText] = useState("");
   const [session, setSession] = useState<InterviewSession>(() =>
     createInitialSession("zh"),
   );
@@ -452,6 +454,12 @@ export function App() {
     await speakQuestionText(latestAgentQuestion);
   }
 
+  async function handleTranscriberSubmit(text: string) {
+    if (text.trim()) {
+      await submitAnswerText(text.trim(), isCallActive);
+    }
+  }
+
   async function handleCallButton() {
     if (!isCallActive) {
       setIsCallActive(true);
@@ -686,66 +694,11 @@ export function App() {
           </div>
 
           <section className="relative mt-4 flex-1 overflow-hidden rounded-[2rem] border border-border">
-            <Orb
-              agentState={orbState}
-              colors={
-                isDark
-                  ? ["#3B82F6", "#6366F1"]
-                  : ["#E86A4A", "#0D9488"]
-              }
+            <RealtimeTranscriber
+              onTranscript={handleTranscriberSubmit}
+              isSupported={recorder.isSupported}
+              bailianApiKey={bailianApiKey}
             />
-            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-              <div className="flex flex-col items-center text-center">
-                <button
-                  type="button"
-                  className={cn(
-                    "pointer-events-auto grid h-20 w-20 place-items-center rounded-full border text-2xl shadow-[0_28px_90px_hsl(var(--foreground)/0.16)] transition duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30",
-                    conversationPhase === "recording"
-                      ? "recording-ring border-primary/20 bg-primary/80 text-primary-foreground backdrop-blur"
-                      : isVoiceBusy
-                        ? "border-accent/20 bg-accent/80 text-accent-foreground backdrop-blur"
-                        : "border-border/60 bg-card/70 text-foreground hover:scale-[1.03] backdrop-blur",
-                    isVoiceBusy && "cursor-wait",
-                  )}
-                  disabled={!recorder.isSupported || isVoiceBusy}
-                  onClick={handleCallButton}
-                  aria-label={phaseCopy.action}
-                >
-                  <i
-                    className={cn(
-                      conversationPhase === "recording"
-                        ? "ri-stop-fill"
-                        : isVoiceBusy
-                          ? "ri-loader-4-line animate-spin"
-                          : isCallActive
-                            ? "ri-mic-line"
-                            : "ri-phone-line",
-                    )}
-                  />
-                </button>
-                <h3 className="mt-4 text-xl font-bold tracking-[-0.04em]">
-                  {phaseCopy.title}
-                </h3>
-                <p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">
-                  {phaseCopy.description}
-                </p>
-                <div className="mt-3 flex gap-1.5">
-                  {getCallSteps(locale).map((step) => (
-                    <div
-                      key={step.phase}
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em]",
-                        step.phase === conversationPhase
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border/40 bg-card/40 text-muted-foreground",
-                      )}
-                    >
-                      {step.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </section>
 
           {ttsAudioUrl && (
