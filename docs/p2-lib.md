@@ -16,6 +16,10 @@
 | `agentClient.ts` | 函数 | API客户端函数 | App.tsx | askAgent, generateBook, getApiStatus |
 | `asrClient.ts` | 函数 | ASR客户端函数 | App.tsx | transcribeWithBailian |
 | `ttsClient.ts` | 函数 | TTS客户端函数 | App.tsx | synthesizeWithBailian |
+| `devSeed.ts` | 函数 | `seedMockMemoir()` | App.tsx (开发模式) | 开发环境模拟数据种子 |
+| `bookFormat.ts` | 函数 | 书稿格式化函数 | BookReader.tsx | 回忆录内容格式化 |
+| `phaseCopy.ts` | 函数 | 阶段文案函数 | App.tsx | 对话阶段状态文案 |
+| `session.ts` | 函数 | 会话管理函数 | App.tsx | 创建/管理访谈会话 |
 
 ## 类型定义 (types.ts)
 

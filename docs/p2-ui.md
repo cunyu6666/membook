@@ -14,6 +14,10 @@
 | `Card.tsx` | 组件 | `Card` | App.tsx | 卡片容器，带圆角和阴影 |
 | `Badge.tsx` | 组件 | `Badge` | App.tsx | 标签组件，用于分类标记 |
 | `Textarea.tsx` | 组件 | `Textarea` | App.tsx | 多行文本输入框 |
+| `LandingCarousel.tsx` | 组件 | `LandingCarousel` | pages/LandingPage.tsx | 落地页图片轮播组件 |
+| `MorphingSpinner.tsx` | 组件 | `MorphingSpinner` | App.tsx | 变形旋转加载动画 |
+| `shimmering-text.tsx` | 组件 | `ShimmeringText` | App.tsx | 闪烁文字效果组件 |
+| `RealtimeTranscriber.tsx` | 组件 | `RealtimeTranscriber` | App.tsx | 实时语音转写组件 |
 
 ## 依赖关系 (FROM)
 
