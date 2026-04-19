@@ -70,8 +70,12 @@ export async function generateMemoirBook(session: Session, nanoPencilRpc: NanoPe
 export function processRpcResponse(text: string, session: Session, answer: string) {
   const parsed = parseAgentJson(text);
   const hasChinese = /[\u4e00-\u9fff]/.test(answer);
+  const defaultQ = hasChinese
+    ? "这段经历里，您最想让家人记住的细节是什么？"
+    : "What detail from this memory should your family remember?";
+  const extracted = parsed.question ?? parsed.nextQuestion;
   return {
-    question: parsed.question ?? parsed.nextQuestion ?? text.trim() ?? (hasChinese ? "这段经历里，您最想让家人记住的细节是什么？" : "What detail from this memory should your family remember?"),
+    question: typeof extracted === "string" && extracted.trim() ? extracted.trim() : defaultQ,
     readiness: clampReadiness(parsed.readiness, session.readiness),
     insights: normalizeInsights(parsed.insights, hasChinese),
   };
