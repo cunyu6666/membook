@@ -109,7 +109,10 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, () => console.log(`Membook API listening on http://localhost:${port}`));
 process.on("SIGINT", () => { void nanoPencilRpc?.stop().finally(() => process.exit(0)); });
-process.on("SIGTERM", () => { void nanoPencilRpc?.stop().finally(() => process.exit(0)); });
+process.on("SIGTERM", () => {
+  const forceExit = setTimeout(() => process.exit(1), 5000);
+  void nanoPencilRpc?.stop().finally(() => { clearTimeout(forceExit); process.exit(0); });
+});
 
 /* ─── Helpers ─── */
 

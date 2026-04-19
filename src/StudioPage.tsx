@@ -3,7 +3,7 @@
  * [FROM]: 依赖 hooks、lib 模块、面板子组件
  * [TO]: 被 App.tsx 的路由挂载
  */
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { BookReader } from "./components/pages/BookReader";
 import { HistoryDialog, SettingsDialog, ImportDialog } from "./components/pages/BookReader";
 import { StudioLeftPanel } from "./components/pages/StudioLeftPanel";
@@ -22,6 +22,7 @@ import { getPhaseCopy, getPhaseProgress } from "./lib/phaseCopy";
 
 const defaultBailianEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
 const defaultBailianTtsEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -56,6 +57,10 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem("membook.bailianTtsVoice") ?? "Cherry");
   const [error, setError] = useState("");
   const [session, setSession] = useState<InterviewSession>(() => createInitialSession("zh"));
+
+  // Concurrency guards
+  const pendingAgentAbort = useRef<AbortController | null>(null);
+  const pendingBookAbort = useRef<AbortController | null>(null);
 
   const answerText = typedAnswer.trim();
   const elderTurns = useMemo(() => session.turns.filter((turn) => turn.role === "elder"), [session.turns]);
@@ -117,6 +122,11 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   async function submitAnswerText(answer: string, shouldSpeakResponse = false) {
     const cleanAnswer = answer.trim();
     if (!cleanAnswer || isAsking) return;
+    // Cancel any in-flight agent request
+    pendingAgentAbort.current?.abort();
+    const abortCtrl = new AbortController();
+    pendingAgentAbort.current = abortCtrl;
+
     const elderTurn = nowTurn("elder", cleanAnswer);
     const nextSession = { ...session, turns: [...session.turns, elderTurn] };
     setSession(nextSession);
@@ -126,10 +136,11 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     setError("");
     let questionToSpeak = "";
     try {
-      const response = await askAgent(nextSession, cleanAnswer);
+      const response = await askAgent(nextSession, cleanAnswer, abortCtrl.signal);
       questionToSpeak = response.question;
       setSession({ ...nextSession, turns: [...nextSession.turns, nowTurn("agent", response.question)], insights: response.insights, readiness: response.readiness });
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       questionToSpeak = t.fallbackQuestion;
       setSession({ ...nextSession, turns: [...nextSession.turns, nowTurn("agent", t.fallbackQuestion)], readiness: Math.min(100, nextSession.readiness + 10) });
       setError(t.errAgentFallback);
@@ -169,12 +180,34 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     setIsSpeaking(true);
     setConversationPhase("speaking");
     setError("");
+    let audio: HTMLAudioElement | null = null;
     let played = false;
     try {
       const audioUrl = await synthesizeWithBailian({ apiKey: bailianApiKey, endpoint: bailianTtsEndpoint, model: bailianTtsModel, text, voice: ttsVoice, instructions: locale === "zh" ? "用温柔、耐心、适合老人访谈的语气朗读。语速稍慢，停顿自然。" : "Read warmly and patiently for an elder interview. Keep the pace slow and clear." });
       setTtsAudioUrl(audioUrl);
-      try { const audio = new Audio(audioUrl); await audio.play(); played = true; } catch (playError) { setError(locale === "zh" ? `音频已生成，但浏览器拦截了自动播放。请先点一次朗读，再继续说。提示：${errorMessage(playError)}` : `Audio is ready, but autoplay was blocked. Tap read aloud once, then continue. Note: ${errorMessage(playError)}`); }
-    } catch (caught) { setError(locale === "zh" ? `朗读失败：${errorMessage(caught)}` : `Voice reading failed: ${errorMessage(caught)}`); }
+      audio = new Audio(audioUrl);
+      audio.onended = () => { audio = null; };
+      await audio.play();
+      played = true;
+    } catch (caught) {
+      // Fallback: try browser native speech synthesis
+      const playError = caught;
+      try {
+        if ("speechSynthesis" in window && text.trim()) {
+          const utterance = new SpeechSynthesisUtterance(text.trim());
+          utterance.rate = 0.85;
+          utterance.pitch = 1.1;
+          await new Promise<void>((resolve, reject) => {
+            utterance.onend = () => resolve();
+            utterance.onerror = () => reject(new Error("Speech synthesis failed"));
+            window.speechSynthesis.speak(utterance);
+          });
+          played = true;
+        }
+      } catch {
+        setError(locale === "zh" ? `朗读失败：${errorMessage(playError)}` : `Voice reading failed: ${errorMessage(playError)}`);
+      }
+    }
     finally {
       setIsSpeaking(false);
       const shouldAutoResume = Boolean(options?.autoResumeRecording) && isCallActive && !recorder.isRecording && played;
@@ -207,25 +240,30 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   }
 
   async function handleGenerateBook() {
+    // Cancel any in-flight book generation
+    pendingBookAbort.current?.abort();
+    const abortCtrl = new AbortController();
+    pendingBookAbort.current = abortCtrl;
+
     setIsGenerating(true); setError("");
     try {
-      const draft = await generateBook(session);
+      const draft = await generateBook(session, abortCtrl.signal);
       setBookDraft(draft); setIsBookOpen(true);
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setBookDraft({ title: t.bookFallbackTitle, subtitle: t.bookFallbackSub, soulSentence: locale === "zh" ? "那些慢慢说出的日子，会被家人记住。" : "The days told slowly can be kept.", chapters: [{ title: t.bookChapter1, summary: elderTurns[0]?.content ?? t.emptyTranscript, contentMarkdown: `# ${t.bookChapter1}\n\n${elderTurns[0]?.content ?? t.emptyTranscript}` }, { title: t.bookChapter2, summary: t.bookWaiting, contentMarkdown: `# ${t.bookChapter2}\n\n${t.bookWaiting}` }], excerpt: elderTurns.map((turn) => turn.content).join("\n\n") || t.emptyTranscript });
       setIsBookOpen(true); setError(t.errBookFallback);
     } finally { setIsGenerating(false); }
   }
 
   async function handleImportContent(content: string) {
-    // 调用后端 AI 解析原始文本，无需分割线格式
     setError("");
     setIsImportOpen(false);
     setIsGenerating(true);
 
     let turns: InterviewTurn[] = [];
     try {
-      const response = await fetch("http://localhost:8787/api/import/parse", {
+      const response = await fetch(`${API_BASE}/api/import/parse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: content }),
@@ -235,7 +273,6 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
         turns = data.turns.map((t: { role: "agent" | "elder"; content: string }) => nowTurn(t.role, t.content));
       }
     } catch {
-      // 回退：简单按行分割
       const lines = content.split(/\n+/).map((l) => l.trim()).filter(Boolean);
       for (let i = 0; i < lines.length; i++) {
         turns.push(nowTurn(i % 2 === 0 ? "agent" : "elder", lines[i]));

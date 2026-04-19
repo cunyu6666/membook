@@ -4,7 +4,7 @@
  * [TO]: 被App.tsx消费，用于录制长辈回答音频
  * [HERE]: src/hooks/useAudioRecorder.ts，音频能力封装层
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
@@ -16,6 +16,16 @@ export function useAudioRecorder() {
     typeof navigator !== "undefined" &&
     Boolean(navigator.mediaDevices?.getUserMedia) &&
     typeof AudioContext !== "undefined";
+
+  // Cleanup on unmount: stop recording and release resources
+  useEffect(() => {
+    return () => {
+      if (stopRef.current) {
+        stopRef.current();
+        stopRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     isSupported,
