@@ -35,5 +35,5 @@ export function BookReaderPage() {
     );
   }
 
-  return <BookReader book={book} locale={locale} onClose={() => navigate("/")} />;
+  return <BookReader book={book} locale={locale} onClose={() => navigate("/studio")} />;
 }
