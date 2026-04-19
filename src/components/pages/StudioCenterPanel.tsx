@@ -14,7 +14,7 @@ import { MorphingSpinner } from "../ui/morphing-spinner";
 import { cn } from "../../lib/utils";
 import type { Locale, CopyKeys } from "../../lib/i18n";
 import type { ConversationPhase } from "../../lib/phaseCopy";
-import { getCallSteps, getPhaseProgress } from "../../lib/phaseCopy";
+import { getCallSteps } from "../../lib/phaseCopy";
 
 export function StudioCenterPanel({
   locale,
@@ -37,7 +37,6 @@ export function StudioCenterPanel({
   onTextChange,
   onFileChange,
   onTranscribe,
-  onSubmit,
 }: {
   locale: Locale;
   t: CopyKeys;
@@ -59,7 +58,6 @@ export function StudioCenterPanel({
   onTextChange: (value: string) => void;
   onFileChange: (file: File | null) => void;
   onTranscribe: () => void;
-  onSubmit: () => void;
 }) {
   const answerText = typedAnswer.trim();
 

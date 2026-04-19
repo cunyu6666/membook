@@ -59,7 +59,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem("membook.bailianTtsVoice") ?? "Cherry");
   const [error, setError] = useState("");
   const [session, setSession] = useState<InterviewSession>(() => createInitialSession("zh"));
-  const [agentMode, setAgentMode] = useState<AgentMode>(() => (localStorage.getItem("membook.agentMode") as AgentMode) || "local");
+  const [agentMode] = useState<AgentMode>(() => (localStorage.getItem("membook.agentMode") as AgentMode) || "local");
 
   // AgentApi 实例 - 根据模式注入（遵循DIP）
   const [agentApi, setAgentApi] = useState<AgentApi>(() => createAgentApi(agentMode, { getToken: () => localStorage.getItem("membook.token") }));
@@ -432,7 +432,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           onSpeakQuestion={handleSpeakQuestion} onCallButton={handleCallButton}
           onFormSubmit={submitAnswer} onTextChange={setTypedAnswer}
           onFileChange={(file) => recorder.setAudioFile(file)}
-          onTranscribe={handleBailianTranscribe} onSubmit={() => void submitAnswerText(answerText, isCallActive)}
+          onTranscribe={handleBailianTranscribe}
         />
         <StudioRightPanel
           locale={locale} t={t} session={session} bookDraft={bookDraft}

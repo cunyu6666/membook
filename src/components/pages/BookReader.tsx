@@ -10,7 +10,7 @@ import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { cn } from "../../lib/utils";
-import { buildBookPages, markdownToPlainText } from "../../lib/bookFormat";
+import { buildBookPages } from "../../lib/bookFormat";
 import type { BookDraft } from "../../lib/types";
 import type { Locale, CopyKeys } from "../../lib/i18n";
 import { copy } from "../../lib/i18n";
