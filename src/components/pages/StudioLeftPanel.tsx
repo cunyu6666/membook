@@ -73,16 +73,21 @@ export function StudioLeftPanel({
         </div>
       </header>
 
-      <section className="rounded-lg bg-[linear-gradient(145deg,oklch(var(--primary)),oklch(var(--accent)))] p-4 text-background shadow-[inset_0_1px_0_oklch(var(--primary-foreground)/0.18)]">
-        <Badge className="border-background/20 bg-background/10 text-background/80">
-          {String(t.compactHint)}
-        </Badge>
-        <h1 className="mt-4 text-2xl font-bold leading-tight text-background">
-          {String(t.heroTitle)}
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-background/75">
-          {String(t.heroBody)}
-        </p>
+      <section className="rounded-lg bg-[linear-gradient(145deg,oklch(var(--primary)),oklch(var(--accent)))] p-6 text-background shadow-[inset_0_1px_0_oklch(var(--primary-foreground)/0.18)]">
+        <div className="flex items-start gap-4">
+          <i className="ri-mic-line text-4xl text-background/80" />
+          <div className="flex-1">
+            <Badge className="border-background/20 bg-background/10 text-background/80">
+              {String(t.compactHint)}
+            </Badge>
+            <h1 className="mt-4 text-2xl font-bold leading-tight text-background">
+              {String(t.heroTitle)}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-background/75">
+              {String(t.heroBody)}
+            </p>
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-3">
