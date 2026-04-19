@@ -413,29 +413,31 @@ export function ConnectionLine({
   items: Array<{ label: string; active: boolean }>;
 }) {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-1">
       {items.map((item, index) => (
         <div key={item.label} className="flex flex-1 items-center">
-          <div className="flex min-w-0 flex-col items-center gap-1">
-            <span
+          <div className="flex flex-1 flex-col items-center gap-1.5">
+            <div
               className={cn(
-                "h-3 w-3 rounded-full ring-4 transition-colors",
-                item.active
-                  ? "bg-accent ring-accent/15"
-                  : "bg-muted ring-muted/20",
+                "relative h-4 w-4 rounded-full transition-colors",
+                item.active ? "bg-accent" : "bg-muted",
               )}
-            />
-            <span className="max-w-16 truncate text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            >
+              {item.active && (
+                <span className="absolute inset-0 animate-ping rounded-full bg-accent/40" />
+              )}
+            </div>
+            <span className="truncate text-[0.55rem] font-medium text-muted-foreground">
               {item.label}
             </span>
           </div>
           {index < items.length - 1 && (
             <div
               className={cn(
-                "mx-2 h-px flex-1 transition-colors",
+                "mb-4 h-px flex-1 transition-colors",
                 item.active && items[index + 1]?.active
                   ? "bg-accent"
-                  : "bg-border",
+                  : "bg-border/60",
               )}
             />
           )}
