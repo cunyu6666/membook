@@ -29,6 +29,7 @@
     "framer-motion": "^12.38.0",
     "memoir-book-pipeline-skill": "^1.1.0",
     "motion": "^12.38.0",
+    "oh-my-develop": "^0.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.14.1",
