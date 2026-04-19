@@ -10,7 +10,7 @@ import { Card } from "../ui/Card";
 import { MorphingSpinner } from "../ui/morphing-spinner";
 import { cn } from "../../lib/utils";
 import type { BookDraft, InterviewSession, InterviewTurn } from "../../lib/types";
-import type { Locale } from "../../lib/i18n";
+import type { Locale, CopyKeys } from "../../lib/i18n";
 
 export function StudioRightPanel({
   locale,
@@ -27,7 +27,7 @@ export function StudioRightPanel({
   onDeleteTurn,
 }: {
   locale: Locale;
-  t: Record<string, unknown>;
+  t: CopyKeys;
   session: InterviewSession;
   bookDraft: BookDraft | null;
   isGenerating: boolean;
@@ -65,7 +65,7 @@ export function StudioRightPanel({
       <Card className="animate-rise-in flex min-h-0 flex-col p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:180ms]">
         <div className="flex items-center justify-between gap-4">
           <h2 className="font-serif-cn text-xl font-bold tracking-normal">
-            {String(t.transcript)}
+            {t.transcript}
           </h2>
           <Button
             variant="secondary"
@@ -78,13 +78,13 @@ export function StudioRightPanel({
             ) : (
               <i className="ri-book-3-line" />
             )}
-            {String(t.generate)}
+            {t.generate}
           </Button>
         </div>
         <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-auto pr-1">
           {session.turns.length === 1 ? (
             <p className="rounded-lg bg-card/58 p-4 text-sm text-muted-foreground">
-              {String(t.emptyTranscript)}
+              {t.emptyTranscript}
             </p>
           ) : (
             session.turns.slice(-8).map((turn) => (
@@ -167,7 +167,7 @@ export function StudioRightPanel({
       <Card className="animate-rise-in min-h-0 p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:260ms]">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-serif-cn text-xl font-bold tracking-normal">
-            {bookDraft ? String(t.bookReady) : String(t.chapterPlan)}
+            {bookDraft ? t.bookReady : t.chapterPlan}
           </h2>
           {bookDraft && (
             <Button variant="secondary" size="sm" onClick={onOpenBook}>

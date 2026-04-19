@@ -13,7 +13,7 @@ import { cn } from "../../lib/utils";
 import type { Locale } from "../../lib/i18n";
 
 export function LandingPage() {
-  const [locale, setLocale] = useState<Locale>("zh");
+  const [locale, setLocale] = useState<Locale>(() => (localStorage.getItem("membook.locale") as Locale) || "zh");
 
   const features = [
     {

@@ -6,7 +6,7 @@
  */
 export type Locale = "zh" | "en";
 
-export type CopyKeys = typeof copy.zh;
+export type CopyKeys = typeof copy.zh | typeof copy.en;
 
 export const copy = {
   zh: {
