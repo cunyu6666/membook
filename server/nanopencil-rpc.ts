@@ -26,8 +26,11 @@ type AgentEvent = {
 };
 
 export type NanoPencilRpcOptions = {
-  cliPath: string;
+  command: string;
   cwd: string;
+  cliPath?: string;
+  useNode?: boolean;
+  displayName?: string;
   timeoutMs?: number;
   extraArgs?: string[];
 };
@@ -51,7 +54,7 @@ export class NanoPencilRpcClient {
   constructor(private readonly options: NanoPencilRpcOptions) {}
 
   isAvailable() {
-    return existsSync(this.options.cliPath);
+    return this.options.cliPath ? existsSync(this.options.cliPath) : Boolean(this.options.command);
   }
 
   async promptAndWait(message: string) {
@@ -94,11 +97,12 @@ export class NanoPencilRpcClient {
       return;
     }
     if (!this.isAvailable()) {
-      throw new Error(`nanoPencil CLI not found: ${this.options.cliPath}`);
+      throw new Error(`nanoPencil CLI not found: ${this.options.displayName ?? this.options.command}`);
     }
 
+    const command = this.options.useNode ? process.execPath : this.options.command;
     const args = [
-      this.options.cliPath,
+      ...(this.options.useNode && this.options.cliPath ? [this.options.cliPath] : []),
       "--mode",
       "rpc",
       "--cwd",
@@ -106,7 +110,7 @@ export class NanoPencilRpcClient {
       ...(this.options.extraArgs ?? []),
     ];
 
-    this.child = spawn("node", args, {
+    this.child = spawn(command, args, {
       cwd: this.options.cwd,
       env: {
         ...process.env,

@@ -6,8 +6,8 @@
  */
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { accessSync, constants, existsSync, readFileSync } from "node:fs";
+import { delimiter, isAbsolute, join, resolve } from "node:path";
 import WebSocket from "ws";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { NanoPencilRpcClient } from "./nanopencil-rpc.js";
@@ -48,8 +48,6 @@ const bailianModel = "fun-asr-realtime-2026-02-28";
 const bailianFiletransModel = "qwen3-asr-flash-filetrans";
 const bailianTtsModel = "qwen3-tts-instruct-flash-realtime";
 const defaultFunAsrEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
-const defaultNanoPencilCliPath =
-  "/Users/cunyu666/Dev/nanoPencil/dist/cli.js";
 const memoirSkillPackage = "memoir-book-pipeline-skill";
 const memoirSkillVersion = "1.1.0";
 const memoirSkillPath = resolve(
@@ -59,13 +57,14 @@ const memoirSkillPath = resolve(
 const memoirSkillSource = existsSync(memoirSkillPath)
   ? readFileSync(memoirSkillPath, "utf8")
   : "";
-const nanoPencilCliPath =
-  process.env.NANOPENCIL_CLI_PATH ?? defaultNanoPencilCliPath;
-const nanoPencilRpcEnabled =
-  process.env.NANOPENCIL_RPC !== "0" && existsSync(nanoPencilCliPath);
-const nanoPencilRpc = nanoPencilRpcEnabled
+const nanoPencilLaunch =
+  process.env.NANOPENCIL_RPC === "0" ? null : resolveNanoPencilLaunch();
+const nanoPencilRpc = nanoPencilLaunch
   ? new NanoPencilRpcClient({
-      cliPath: nanoPencilCliPath,
+      command: nanoPencilLaunch.command,
+      cliPath: nanoPencilLaunch.cliPath,
+      useNode: nanoPencilLaunch.useNode,
+      displayName: nanoPencilLaunch.displayName,
       cwd: resolve(process.env.NANOPENCIL_WORKDIR ?? process.cwd()),
       timeoutMs: Number(process.env.NANOPENCIL_TIMEOUT_MS ?? 120000),
       extraArgs: [
@@ -84,6 +83,96 @@ const nanoPencilRpc = nanoPencilRpcEnabled
     })
   : null;
 
+type NanoPencilLaunch = {
+  command: string;
+  displayName: string;
+  cliPath?: string;
+  useNode?: boolean;
+};
+
+function resolveNanoPencilLaunch(): NanoPencilLaunch | null {
+  const configuredCliPath = process.env.NANOPENCIL_CLI_PATH?.trim();
+  if (configuredCliPath) {
+    const cliPath = resolve(configuredCliPath);
+    if (!existsSync(cliPath)) {
+      return null;
+    }
+
+    return {
+      command: isNodeScript(cliPath) ? process.execPath : cliPath,
+      cliPath,
+      displayName: cliPath,
+      useNode: isNodeScript(cliPath),
+    };
+  }
+
+  const localBin = findFirstExecutable([
+    resolve(process.cwd(), "node_modules/.bin/nanopencil"),
+    resolve(process.cwd(), "node_modules/.bin/nano-pencil"),
+  ]);
+  if (localBin) {
+    return {
+      command: localBin,
+      cliPath: localBin,
+      displayName: localBin,
+      useNode: false,
+    };
+  }
+
+  const pathCommand = findCommandOnPath(["nanopencil", "nano-pencil"]);
+  if (pathCommand) {
+    return {
+      command: pathCommand,
+      displayName: pathCommand,
+      useNode: false,
+    };
+  }
+
+  return null;
+}
+
+function isNodeScript(filePath: string) {
+  return /\.(?:cjs|mjs|js)$/i.test(filePath);
+}
+
+function findFirstExecutable(candidates: string[]) {
+  return candidates.find((candidate) => isExecutable(candidate));
+}
+
+function findCommandOnPath(commands: string[]) {
+  const pathParts = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+  const extensions =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
+      : [""];
+
+  for (const command of commands) {
+    if (isAbsolute(command) && isExecutable(command)) {
+      return command;
+    }
+
+    for (const pathPart of pathParts) {
+      for (const extension of extensions) {
+        const candidate = join(pathPart, `${command}${extension}`);
+        if (isExecutable(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  return "";
+}
+
+function isExecutable(filePath: string) {
+  try {
+    accessSync(filePath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const server = createServer(async (request, response) => {
   if (request.method === "OPTIONS") {
     sendJson(response, 204, {});
@@ -101,7 +190,7 @@ const server = createServer(async (request, response) => {
             ? "command"
             : "local",
         acpUrl: process.env.NANOPENCIL_ACP_URL,
-        cliPath: nanoPencilRpc ? nanoPencilCliPath : undefined,
+        cliPath: nanoPencilLaunch?.displayName,
         asrModel: bailianModel,
         asrFiletransModel: bailianFiletransModel,
         asrEndpoint: process.env.BAILIAN_ASR_ENDPOINT ?? defaultFunAsrEndpoint,
