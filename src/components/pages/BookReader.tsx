@@ -416,10 +416,10 @@ export function ConnectionLine({
     <div className="flex items-center">
       {items.map((item, index) => (
         <div key={item.label} className="flex flex-1 items-center">
-          <div className="flex flex-1 flex-col items-center">
+          <div className="flex flex-col items-center">
             <div
               className={cn(
-                "h-2.5 w-2.5 rounded-full border-2 transition-colors",
+                "h-2 w-2 rounded-full border-2 transition-colors",
                 item.active
                   ? "border-green-500 bg-green-500"
                   : "border-muted-foreground/30 bg-background",
@@ -432,10 +432,10 @@ export function ConnectionLine({
           {index < items.length - 1 && (
             <div
               className={cn(
-                "h-0.5 flex-1 transition-colors",
+                "mx-0.5 h-px flex-1 border-b border-dashed transition-colors",
                 item.active && items[index + 1]?.active
-                  ? "bg-green-500"
-                  : "bg-border/40",
+                  ? "border-green-500"
+                  : "border-border/40",
               )}
             />
           )}
