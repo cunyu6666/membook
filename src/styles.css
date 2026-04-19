@@ -126,6 +126,20 @@ textarea {
   font: inherit;
 }
 
+/* ─── Cursor policy ─── */
+button,
+[role="button"],
+a {
+  cursor: pointer;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  cursor: text;
+}
+
 ::selection {
   background: oklch(var(--primary) / 0.18);
 }
