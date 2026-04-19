@@ -11,7 +11,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <section
       className={cn(
-        "rounded-[2rem] border border-border/80 bg-card/78 p-6 text-card-foreground shadow-[0_24px_80px_hsl(220_30%_4%/0.10)] backdrop-blur-xl",
+        "rounded-lg bg-card/92 p-5 text-card-foreground shadow-[0_18px_48px_oklch(var(--foreground)/0.08)] ring-1 ring-foreground/5 backdrop-blur-sm",
         className,
       )}
       {...props}
