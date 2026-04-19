@@ -13,6 +13,8 @@ AI-assisted interview product for turning elders' oral histories into a family m
 
 ## Run
 
+For a handoff-friendly startup checklist, give [`AI_START_HERE.md`](./AI_START_HERE.md) to the AI or developer taking over this repo.
+
 ```bash
 npm install
 npm run dev:all
@@ -24,11 +26,12 @@ The Vite app runs on `http://localhost:5173`, and the local API adapter runs on 
 
 The frontend only talks to the local API. Keep the agent and book pipeline server-side so browser code never depends on CLI internals.
 
-Local nanoPencil RPC is the default development path. If this file exists, the API server will use it automatically:
+Local nanoPencil RPC is the default development path. The API server looks for nanoPencil in this order:
 
-```text
-/Users/cunyu666/Dev/nanoPencil/dist/cli.js
-```
+1. `NANOPENCIL_CLI_PATH`, when you explicitly set it.
+2. `node_modules/.bin/nanopencil` or `node_modules/.bin/nano-pencil`, if this project installs a local CLI package.
+3. `nanopencil` or `nano-pencil` on `PATH`.
+4. Local fallback mode, so the project still starts even when nanoPencil is not installed.
 
 Run:
 
@@ -47,20 +50,20 @@ Expected:
 ```json
 {
   "mode": "rpc",
-  "cliPath": "/Users/cunyu666/Dev/nanoPencil/dist/cli.js"
+  "cliPath": "nanopencil"
 }
 ```
 
 Useful overrides:
 
 ```bash
-NANOPENCIL_CLI_PATH="/Users/cunyu666/Dev/nanoPencil/dist/cli.js" npm run dev:api
-NANOPENCIL_WORKDIR="/Users/cunyu666/Dev/membook" npm run dev:api
+NANOPENCIL_CLI_PATH="./node_modules/.bin/nanopencil" npm run dev:api
+NANOPENCIL_WORKDIR="$PWD" npm run dev:api
 NANOPENCIL_MODEL="dashscope-coding/qwen3-coder-plus" npm run dev:api
 NANOPENCIL_RPC=0 npm run dev:api
 ```
 
-The browser calls `/api/agent/interview`; the Node adapter keeps a local `node dist/cli.js --mode rpc` subprocess and sends interview prompts over stdin/stdout.
+The browser calls `/api/agent/interview`; the Node adapter keeps a local `nanopencil --mode rpc` subprocess and sends interview prompts over stdin/stdout. If `NANOPENCIL_CLI_PATH` points at a `.js`, `.mjs`, or `.cjs` file, the adapter runs it through the current Node executable.
 
 ACP note: nanoPencil ACP is a stdio NDJSON protocol for editor clients. Browsers cannot call it directly. If you run a separate HTTP ACP bridge, you can still point this adapter at that bridge:
 

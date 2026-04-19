@@ -93,7 +93,7 @@ npm run dev:all   # 同时启动前端(5173)和服务端(8787)
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `NANOPENCIL_CLI_PATH` | nanoPencil CLI路径 | `/Users/cunyu666/Dev/nanoPencil/dist/cli.js` |
+| `NANOPENCIL_CLI_PATH` | nanoPencil CLI路径；不设置时自动查找项目内 `.bin` 和 PATH | - |
 | `NANOPENCIL_RPC` | 是否启用RPC(0=禁用) | `1` |
 | `NANOPENCIL_MODEL` | 使用的模型 | - |
 | `NANOPENCIL_ACP_URL` | ACP桥接URL | - |
