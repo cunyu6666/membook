@@ -91,7 +91,7 @@ export function StudioCenterPanel({
               {isVoiceBusy ? (
                 conversationPhase === "thinking" ? (
                   <div className="flex items-center gap-2">
-                    <MorphingSpinner size="sm" className="!bg-background/80" />
+                    <MorphingSpinner size="sm" />
                     <ShimmeringText
                       text={phaseCopy.status}
                       startOnView={false}

@@ -1,5 +1,5 @@
 /**
- * [WHO]: 提供 MorphingSpinner 变形旋转加载动画组件
+ * [WHO]: 提供 MorphingSpinner 环形旋转加载动画组件
  * [FROM]: 依赖 lib/utils
  * [TO]: 被 App.tsx 消费
  * [HERE]: src/components/ui/，加载状态指示器
@@ -13,42 +13,20 @@ interface MorphingSpinnerProps {
 
 export function MorphingSpinner({ size = "md", className }: MorphingSpinnerProps) {
   const sizeClasses = {
-    sm: "w-6 h-6",
+    sm: "w-5 h-5",
     md: "w-8 h-8",
     lg: "w-12 h-12",
   };
+  const borderWidth = { sm: "border-[2px]", md: "border-[3px]", lg: "border-[4px]" };
 
   return (
-    <div className={cn("relative", sizeClasses[size], className)}>
-      <div className="absolute inset-0 bg-primary animate-[smoothMorph_3s_ease-in-out_infinite]" />
-      <style>{`
-        @keyframes smoothMorph {
-          0% {
-            transform: scale(1) rotate(0deg);
-            border-radius: 50%;
-          }
-          20% {
-            transform: scale(0.9) rotate(72deg);
-            border-radius: 35%;
-          }
-          40% {
-            transform: scale(1.1) rotate(144deg);
-            border-radius: 15%;
-          }
-          60% {
-            transform: scale(0.85) rotate(216deg);
-            border-radius: 8%;
-          }
-          80% {
-            transform: scale(1.05) rotate(288deg);
-            border-radius: 25%;
-          }
-          100% {
-            transform: scale(1) rotate(360deg);
-            border-radius: 50%;
-          }
-        }
-      `}</style>
-    </div>
+    <div
+      className={cn(
+        "animate-spin rounded-full border-solid border-primary/30 border-t-primary",
+        sizeClasses[size],
+        borderWidth[size],
+        className,
+      )}
+    />
   );
 }
