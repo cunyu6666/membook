@@ -6,7 +6,7 @@
  */
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import WebSocket from "ws";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -22,6 +22,23 @@ type Session = {
   readiness: number;
 };
 
+type BookDraft = {
+  title: string;
+  subtitle: string;
+  soulSentence?: string;
+  chapters: Array<{
+    title: string;
+    summary: string;
+    contentMarkdown?: string;
+  }>;
+  excerpt: string;
+  pipeline?: {
+    package: string;
+    version: string;
+    mode: string;
+  };
+};
+
 const port = Number(process.env.PORT ?? 8787);
 const defaultBailianEndpoint =
   "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -33,6 +50,15 @@ const bailianTtsModel = "qwen3-tts-instruct-flash-realtime";
 const defaultFunAsrEndpoint = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
 const defaultNanoPencilCliPath =
   "/Users/cunyu666/Dev/nanoPencil/dist/cli.js";
+const memoirSkillPackage = "memoir-book-pipeline-skill";
+const memoirSkillVersion = "1.1.0";
+const memoirSkillPath = resolve(
+  process.cwd(),
+  "node_modules/memoir-book-pipeline-skill/SKILL.md",
+);
+const memoirSkillSource = existsSync(memoirSkillPath)
+  ? readFileSync(memoirSkillPath, "utf8")
+  : "";
 const nanoPencilCliPath =
   process.env.NANOPENCIL_CLI_PATH ?? defaultNanoPencilCliPath;
 const nanoPencilRpcEnabled =
@@ -81,6 +107,9 @@ const server = createServer(async (request, response) => {
         asrEndpoint: process.env.BAILIAN_ASR_ENDPOINT ?? defaultFunAsrEndpoint,
         ttsModel: bailianTtsModel,
         ttsEndpoint: process.env.BAILIAN_TTS_ENDPOINT ?? defaultBailianTtsEndpoint,
+        memoirPipeline: memoirSkillSource
+          ? `${memoirSkillPackage}@${memoirSkillVersion}`
+          : undefined,
       });
       return;
     }
@@ -102,7 +131,7 @@ const server = createServer(async (request, response) => {
       const body = await readJson<{ session: Session }>(request);
       const result = process.env.MEMOIR_PIPELINE_COMMAND
         ? await runCommand(process.env.MEMOIR_PIPELINE_COMMAND, body)
-        : localBookDraft(body.session);
+        : await generateMemoirBook(body.session);
       sendJson(response, 200, result);
       return;
     }
@@ -655,12 +684,67 @@ function localInterview(session: Session, answer: string) {
   };
 }
 
+async function generateMemoirBook(session: Session): Promise<BookDraft> {
+  if (!nanoPencilRpc || !memoirSkillSource) {
+    return localBookDraft(session, nanoPencilRpc ? "local-fallback-no-skill" : "local-fallback-no-agent");
+  }
+
+  try {
+    const text = await nanoPencilRpc.promptAndWait(buildMemoirPipelinePrompt(session));
+    return normalizeBookDraft(parseBookJson(text), session, "nanopencil-rpc");
+  } catch {
+    return localBookDraft(session, "local-fallback-agent-error");
+  }
+}
+
 function memoirInterviewSystemPrompt() {
   return [
     "You are the interview agent for Membook, a life memoir product for elders.",
     "Your job is not coding in this context.",
     "Interview gently, ask one concise follow-up question at a time, and preserve concrete details.",
     "When asked by the API adapter, return strict JSON matching: {\"question\": string, \"readiness\": number, \"insights\": [{\"label\": string, \"value\": string}]}",
+  ].join("\n");
+}
+
+function buildMemoirPipelinePrompt(session: Session) {
+  const transcript = session.turns
+    .map((turn) => `${turn.role === "agent" ? "访谈助手" : "长辈"}：${turn.content}`)
+    .join("\n");
+  const elderText = session.turns
+    .filter((turn) => turn.role === "elder")
+    .map((turn) => turn.content)
+    .join("\n\n");
+  const hasChinese = /[\u4e00-\u9fff]/.test(transcript);
+
+  return [
+    "你现在要执行 npm 包 memoir-book-pipeline-skill 的回忆录成书流水线。",
+    "必须遵守该技能的核心顺序：原始访谈 -> story-extractor 记忆碎片 -> narrative-architect 全书骨架 -> prose-writer 逐章第一人称散文 -> book-renderer 可读书稿。",
+    "不要跳过碎片提取；不要编造访谈中没有的具体事实；素材不足时诚实写成素描版。",
+    "以下是已安装技能包的说明节选，作为生成规范：",
+    memoirSkillSource.slice(0, 5200),
+    "",
+    "请基于下面的原始访谈，输出严格 JSON，不要 Markdown 围栏，不要额外说明。",
+    "JSON schema:",
+    JSON.stringify({
+      title: hasChinese ? "书名" : "Book title",
+      subtitle: hasChinese ? "副标题" : "Subtitle",
+      soulSentence: hasChinese ? "只属于这位长辈的一句话" : "A sentence unique to this person",
+      chapters: [
+        {
+          title: hasChinese ? "章节标题" : "Chapter title",
+          summary: hasChinese ? "章节摘要" : "Chapter summary",
+          contentMarkdown: hasChinese
+            ? "# 章节标题\n\n第一人称散文正文。"
+            : "# Chapter title\n\nFirst-person prose.",
+        },
+      ],
+      excerpt: hasChinese ? "全书摘录" : "Book excerpt",
+    }),
+    "",
+    "约束：章节数 3-6 章；每章必须有 contentMarkdown；正文用第一人称“我”；尽量保留口述质感；如果语料很少，每章 150-500 字即可。",
+    "",
+    "原始访谈：",
+    transcript || elderText || "(empty)",
   ].join("\n");
 }
 
@@ -713,6 +797,82 @@ function parseAgentJson(text: string) {
       return {};
     }
   }
+}
+
+function parseBookJson(text: string) {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "");
+
+  try {
+    return JSON.parse(cleaned) as unknown;
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    try {
+      return JSON.parse(match[0]) as unknown;
+    } catch {
+      return {};
+    }
+  }
+}
+
+function normalizeBookDraft(value: unknown, session: Session, mode: string): BookDraft {
+  const fallback = localBookDraft(session, mode);
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const record = value as {
+    title?: unknown;
+    book_title?: unknown;
+    subtitle?: unknown;
+    book_subtitle?: unknown;
+    soulSentence?: unknown;
+    soul_sentence?: unknown;
+    excerpt?: unknown;
+    chapters?: unknown;
+  };
+  const chapters = Array.isArray(record.chapters)
+    ? record.chapters
+        .filter((chapter) => chapter && typeof chapter === "object")
+        .map((chapter, index) => {
+          const item = chapter as {
+            title?: unknown;
+            summary?: unknown;
+            contentMarkdown?: unknown;
+            content_markdown?: unknown;
+          };
+          const title = String(item.title ?? `${index + 1}`);
+          const contentMarkdown = String(
+            item.contentMarkdown ?? item.content_markdown ?? item.summary ?? "",
+          ).trim();
+          return {
+            title,
+            summary: String(item.summary ?? contentMarkdown.slice(0, 180) ?? ""),
+            contentMarkdown,
+          };
+        })
+        .filter((chapter) => chapter.title && (chapter.summary || chapter.contentMarkdown))
+        .slice(0, 8)
+    : [];
+
+  return {
+    title: String(record.title ?? record.book_title ?? fallback.title),
+    subtitle: String(record.subtitle ?? record.book_subtitle ?? fallback.subtitle),
+    soulSentence: String(
+      record.soulSentence ?? record.soul_sentence ?? fallback.soulSentence ?? "",
+    ),
+    chapters: chapters.length > 0 ? chapters : fallback.chapters,
+    excerpt: String(record.excerpt ?? fallback.excerpt),
+    pipeline: {
+      package: memoirSkillPackage,
+      version: memoirSkillVersion,
+      mode,
+    },
+  };
 }
 
 function clampReadiness(value: unknown, fallback: number) {
@@ -784,30 +944,44 @@ function mergeIncrementalText(parts: string[]) {
   return output;
 }
 
-function localBookDraft(session: Session) {
+function localBookDraft(session: Session, mode = "local-fallback"): BookDraft {
   const elderText = session.turns
     .filter((turn) => turn.role === "elder")
     .map((turn) => turn.content);
   const hasChinese = elderText.some((text) => /[\u4e00-\u9fff]/.test(text));
+  const firstMemory = elderText[0] ?? (hasChinese ? "等待更多语料。" : "More source material needed.");
+  const secondMemory = elderText[1] ?? (hasChinese ? "将在后续访谈中补全。" : "To be completed in later interviews.");
+  const thirdMemory = elderText[2] ?? (hasChinese ? "等待老人讲述。" : "Awaiting the elder's words.");
 
   return {
     title: hasChinese ? "我的一生，慢慢说给你听" : "A Life, Told Slowly",
     subtitle: hasChinese ? "基于口述访谈整理的初稿" : "A first draft shaped from oral interviews",
+    soulSentence: hasChinese
+      ? "那些被慢慢说出的日子，会成为家里最温柔的灯。"
+      : "The days told slowly become a light the family can keep.",
     chapters: [
       {
         title: hasChinese ? "第一章：最初的家" : "Chapter 1: The First Home",
-        summary: elderText[0] ?? (hasChinese ? "等待更多语料。" : "More source material needed."),
+        summary: firstMemory,
+        contentMarkdown: `${hasChinese ? "# 第一章：最初的家" : "# Chapter 1: The First Home"}\n\n${firstMemory}`,
       },
       {
         title: hasChinese ? "第二章：那些重要的人" : "Chapter 2: The People Who Mattered",
-        summary: elderText[1] ?? (hasChinese ? "将在后续访谈中补全。" : "To be completed in later interviews."),
+        summary: secondMemory,
+        contentMarkdown: `${hasChinese ? "# 第二章：那些重要的人" : "# Chapter 2: The People Who Mattered"}\n\n${secondMemory}`,
       },
       {
         title: hasChinese ? "第三章：留给家人的话" : "Chapter 3: What I Leave With You",
-        summary: elderText[2] ?? (hasChinese ? "等待老人讲述。" : "Awaiting the elder's words."),
+        summary: thirdMemory,
+        contentMarkdown: `${hasChinese ? "# 第三章：留给家人的话" : "# Chapter 3: What I Leave With You"}\n\n${thirdMemory}`,
       },
     ],
     excerpt: elderText.join("\n\n"),
+    pipeline: {
+      package: memoirSkillPackage,
+      version: memoirSkillVersion,
+      mode,
+    },
   };
 }
 

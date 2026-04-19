@@ -32,11 +32,18 @@ export type AgentInterviewResponse = {
 export type BookDraft = {
   title: string;
   subtitle: string;
+  soulSentence?: string;
   chapters: Array<{
     title: string;
     summary: string;
+    contentMarkdown?: string;
   }>;
   excerpt: string;
+  pipeline?: {
+    package: string;
+    version: string;
+    mode: string;
+  };
 };
 
 export type ApiStatus = {
@@ -48,4 +55,5 @@ export type ApiStatus = {
   asrEndpoint: string;
   ttsModel?: string;
   ttsEndpoint?: string;
+  memoirPipeline?: string;
 };

@@ -13,16 +13,21 @@
     "test:e2e": "node scripts/e2e-voice-agent.mjs"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.0",
     "@tailwindcss/vite": "^4.1.0",
+    "@types/three": "^0.184.0",
     "@vitejs/plugin-react": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "concurrently": "^9.1.2",
+    "memoir-book-pipeline-skill": "^1.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "remixicon": "^4.5.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss": "^4.1.0",
+    "three": "^0.184.0",
     "tsx": "^4.19.2",
     "ws": "^8.18.0"
   },
