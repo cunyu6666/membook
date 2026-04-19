@@ -1221,7 +1221,7 @@ function StudioPage({
               {isAsking && (
                 <article className="rounded-lg bg-card/62 p-3 text-sm leading-6 text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <i className="ri-loader-4-line animate-spin text-lg" />
+                    <MorphingSpinner size="sm" />
                     <div>
                       <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] opacity-70">
                         {locale === "zh" ? "助手" : "Guide"}
