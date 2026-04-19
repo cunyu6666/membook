@@ -205,13 +205,11 @@ function LandingPage() {
         {/* Top nav */}
         <header className="flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10">
-              <img
-                src={logoImage}
-                alt="logo"
-                className="h-7 w-7 rounded"
-              />
-            </div>
+            <img
+              src={logoImage}
+              alt="logo"
+              className="h-10 w-10 rounded-[6px]"
+            />
             <span className="text-lg font-bold">
               {locale === "zh" ? "星光回忆录" : "Starlight Memoir"}
             </span>
@@ -884,13 +882,11 @@ function StudioPage({
         <Card className="animate-rise-in flex min-h-0 flex-col gap-3 p-4">
           <header className="grid gap-3">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10">
-                <img
-                  src={logoImage}
-                  alt="logo"
-                  className="h-7 w-7 rounded"
-                />
-              </div>
+              <img
+                src={logoImage}
+                alt="logo"
+                className="h-10 w-10 rounded-[6px]"
+              />
               <div>
                 <p className="text-lg font-bold">{t.appName}</p>
               </div>
@@ -1225,15 +1221,14 @@ function StudioPage({
               {isAsking && (
                 <article className="rounded-lg bg-card/62 p-3 text-sm leading-6 text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <MorphingSpinner size="sm" />
+                    <i className="ri-loader-4-line animate-spin text-lg" />
                     <div>
                       <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] opacity-70">
                         {locale === "zh" ? "助手" : "Guide"}
                       </p>
-                      <ShimmeringText
-                        text={locale === "zh" ? "正在整理下一句追问" : "Preparing the next question"}
-                        startOnView={false}
-                      />
+                      <span className="text-muted-foreground/70">
+                        {locale === "zh" ? "正在整理下一句追问..." : "Preparing the next question..."}
+                      </span>
                     </div>
                   </div>
                 </article>
