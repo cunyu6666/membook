@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 LoginPage 登录页面组件，包含管理员认证和国际化切换
+ * [FROM]: 依赖 UI 组件库 (Badge, Button, Card)、i18n国际化、BookReader的Field子组件
+ * [TO]: 被 App.tsx 路由挂载，是进入工作台的安全入口
+ * [HERE]: src/components/pages/LoginPage.tsx，认证入口页面
+ */
 import { FormEvent, useState } from "react";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";

@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 LandingPage 落地页组件，展示产品介绍、功能特点和行动引导
+ * [FROM]: 依赖 UI 组件库 (Badge, Button, LandingCarousel)、i18n国际化
+ * [TO]: 被 App.tsx 路由挂载，作为未登录用户的首页
+ * [HERE]: src/components/pages/LandingPage.tsx，品牌展示与引流入口
+ */
 import { useState } from "react";
 import logoImage from "../../assets/logo.jpg";
 import { Badge } from "../../components/ui/Badge";
