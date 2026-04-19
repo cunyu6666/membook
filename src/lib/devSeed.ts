@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 seedMockMemoir 开发模式模拟数据函数
+ * [FROM]: 依赖 types
+ * [TO]: 被 App.tsx (开发模式) 消费
+ * [HERE]: src/lib/，开发调试用模拟数据
+ */
 import type { BookDraft, InterviewSession } from "../lib/types";
 
 const mockSession: InterviewSession = {

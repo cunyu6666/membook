@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 MorphingSpinner 变形旋转加载动画组件
+ * [FROM]: 依赖 lib/utils
+ * [TO]: 被 App.tsx 消费
+ * [HERE]: src/components/ui/，加载状态指示器
+ */
 import { cn } from "../../lib/utils";
 
 interface MorphingSpinnerProps {

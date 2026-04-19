@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 LandingCarousel 图片轮播组件
+ * [FROM]: 依赖 react, lib/utils
+ * [TO]: 被 pages/LandingPage.tsx 消费
+ * [HERE]: src/components/ui/，与同级 UI 组件相邻
+ */
 import { useEffect, useState, useCallback } from "react";
 import { cn } from "../../lib/utils";
 

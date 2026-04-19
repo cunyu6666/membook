@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 ShimmeringText 闪烁文字效果组件
+ * [FROM]: 依赖 motion/react, lib/utils
+ * [TO]: 被 App.tsx 消费
+ * [HERE]: src/components/ui/，文本动画效果
+ */
 import React, { useMemo, useRef } from "react"
 import { motion, useInView, UseInViewOptions } from "motion/react"
 

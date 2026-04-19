@@ -1,3 +1,9 @@
+/**
+ * [WHO]: 提供 RealtimeTranscriber 实时语音转写组件
+ * [FROM]: 依赖 framer-motion, react, lib/utils
+ * [TO]: 被 App.tsx 消费
+ * [HERE]: src/components/ui/，实时语音交互核心组件
+ */
 "use client"
 
 import { AnimatePresence, motion } from "framer-motion"
