@@ -1,5 +1,8 @@
 /**
- * Studio page right panel — transcript and book preview.
+ * [WHO]: 提供 StudioRightPanel 工作台右侧面板，包含对话记录和回忆录预览
+ * [FROM]: 依赖 UI 组件库 (Button, Card, MorphingSpinner)、lib模块
+ * [TO]: 被 StudioPage.tsx 消费，作为工作台三大面板之一
+ * [HERE]: src/components/pages/StudioRightPanel.tsx，访谈记录与成书入口
  */
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";

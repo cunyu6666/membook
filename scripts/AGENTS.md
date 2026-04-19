@@ -24,10 +24,17 @@
 
 ## 模块坐标 (HERE)
 
-位于项目根目录 `scripts/`，是项目的工具脚本集合。与 `server/` 模块通过HTTP API交互。
+位于项目根目录 `scripts/`，是项目的工具脚本集合。
 
 ## 运行方式
 
 ```bash
 npm run test:e2e
 ```
+
+## 关联文档
+
+- [P1 根文档](../pencil.md)
+
+---
+*本文档遵循DIP协议*

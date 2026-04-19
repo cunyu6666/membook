@@ -1,5 +1,8 @@
 /**
- * Interview agent logic, memoir book generation, JSON parsing, and normalization.
+ * [WHO]: 提供访谈Agent逻辑、本地降级、回忆录生成、JSON解析与规范化函数
+ * [FROM]: 依赖Node.js fs模块、NanoPencilRpcClient、memoir-book-pipeline-skill (可选)
+ * [TO]: 被server/index.ts消费，用于AI追问和回忆录生成
+ * [HERE]: server/lib/interviewAgent.ts，访谈与成书核心逻辑
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";

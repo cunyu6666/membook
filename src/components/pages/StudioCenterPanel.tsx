@@ -1,5 +1,8 @@
 /**
- * Studio page center panel — voice-first call UI.
+ * [WHO]: 提供 StudioCenterPanel 工作台中间面板，包含语音通话UI、状态显示、输入区域
+ * [FROM]: 依赖 UI 组件库、shimmering-text和morphing-spinner动画组件、hooks模块
+ * [TO]: 被 StudioPage.tsx 消费，作为工作台三大面板之一
+ * [HERE]: src/components/pages/StudioCenterPanel.tsx，语音优先通话界面
  */
 import { type FormEvent } from "react";
 import { Badge } from "../ui/Badge";

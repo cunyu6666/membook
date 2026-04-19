@@ -17,15 +17,17 @@ AI辅助的口述历史访谈产品，帮助普通用户将长辈的口头回忆
 
 ## 目录结构 (P2 模块索引)
 
+> 📌 按照DIP协议，P2文档位于各模块目录下的 `AGENTS.md`
+
 | 模块 | 路径 | 说明 | 文档 |
 |------|------|------|------|
-| 前端应用 | `src/` | React前端应用，包含UI组件、Hooks、客户端 | [P2-src](./docs/p2-src.md) |
-| 服务端 | `server/` | Node.js API适配层，nanoPencil RPC客户端 | [P2-server](./docs/p2-server.md) |
-| UI组件库 | `src/components/ui/` | shadcn风格的本地UI原语 | [P2-ui](./docs/p2-ui.md) |
-| 页面组件 | `src/components/pages/` | 页面级组件（登录页等） | [P2-pages](./docs/p2-pages.md) |
-| 自定义Hooks | `src/hooks/` | 音频录制、语音识别Hooks | [P2-hooks](./docs/p2-hooks.md) |
-| 客户端库 | `src/lib/` | API客户端、国际化、工具函数 | [P2-lib](./docs/p2-lib.md) |
-| 脚本 | `scripts/` | E2E测试脚本 | [P2-scripts](./docs/p2-scripts.md) |
+| 前端应用 | `src/` | React前端应用，包含UI组件、Hooks、客户端 | [P2-src](./src/AGENTS.md) |
+| 服务端 | `server/` | Node.js API适配层，nanoPencil RPC客户端 | [P2-server](./server/AGENTS.md) |
+| UI组件库 | `src/components/ui/` | shadcn风格的本地UI原语 | [P2-ui](./src/components/ui/AGENTS.md) |
+| 页面组件 | `src/components/pages/` | 页面级组件（登录页等） | [P2-pages](./src/components/pages/AGENTS.md) |
+| 自定义Hooks | `src/hooks/` | 音频录制、语音识别Hooks | [P2-hooks](./src/hooks/AGENTS.md) |
+| 客户端库 | `src/lib/` | API客户端、国际化、工具函数 | [P2-lib](./src/lib/AGENTS.md) |
+| 脚本 | `scripts/` | E2E测试脚本 | [P2-scripts](./scripts/AGENTS.md) |
 | 设计技能 | `.agents/skills/` | 设计系统相关技能 | 见.impeccable.md |
 
 ## 架构概览

@@ -1,8 +1,8 @@
 /**
- * [WHO]: 提供 createSession, readSavedMemoirs, type SavedMemoir
- * [FROM]: 依赖 devSeed, i18n, types
- * [TO]: 被 App.tsx 消费
- * [HERE]: src/lib/，会话管理工具模块
+ * [WHO]: 提供 createInitialSession, readSavedMemoirs, nowTurn, makeHistoryTitle 函数和 SavedMemoir 类型
+ * [FROM]: 依赖 devSeed 开发种子数据、i18n国际化、types类型定义
+ * [TO]: 被 App.tsx 和 StudioPage.tsx 消费，用于会话创建和持久化
+ * [HERE]: src/lib/session.ts，会话管理与本地存储层
  */
 import { seedMockMemoir } from "./devSeed";
 import { copy, type Locale } from "./i18n";

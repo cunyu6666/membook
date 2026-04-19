@@ -12,6 +12,9 @@
 |------|------|-----------|------------|------|
 | `index.ts` | 服务 | HTTP API服务器 | 前端应用 | 路由分发、业务逻辑、降级处理 |
 | `nanopencil-rpc.ts` | 类 | `NanoPencilRpcClient` 类 | index.ts | nanoPencil子进程管理、NDJSON协议通信 |
+| `lib/asrTts.ts` | 函数 | `transcribeWithBailian`, `synthesizeWithBailian` | index.ts | 百炼ASR/TTS WebSocket封装 |
+| `lib/interviewAgent.ts` | 函数 | `localInterview`, `generateMemoirBook`, `processRpcResponse` | index.ts | 访谈逻辑、本地降级、成书生成 |
+| `lib/nanopencilLauncher.ts` | 函数 | `resolveNanoPencilLaunch` | index.ts | nanoPencil CLI路径解析 |
 
 ## API端点
 
@@ -38,11 +41,12 @@
 
 ## 模块坐标 (HERE)
 
-位于项目根目录 `server/`，是前端与外部服务之间的桥梁。与 `src/` 模块通过HTTP API连接，与外部nanoPencil CLI通过子进程NDJSON协议通信，与百炼服务通过WebSocket连接。
+位于项目根目录 `server/`，是前端与外部服务之间的桥梁。
 
-## 关键设计决策
+## 关联文档
 
-1. **浏览器不直接调用CLI**: nanoPencil ACP是stdio NDJSON协议，浏览器无法直接调用，必须通过Node.js适配
-2. **本地降级优先**: 所有AI功能都有本地降级，保证产品demo可用
-3. **多模式支持**: 支持RPC、ACP、Command三种nanoPencil调用模式
-4. **密钥存储**: 百炼API Key存储在浏览器localStorage，仅用于开发便利
+- [P1 根文档](../pencil.md)
+- [P2-src 前端应用](../src/AGENTS.md)
+
+---
+*本文档遵循DIP协议*

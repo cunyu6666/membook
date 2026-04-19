@@ -18,7 +18,7 @@
 | `ttsClient.ts` | 函数 | TTS客户端函数 | App.tsx | synthesizeWithBailian |
 | `devSeed.ts` | 函数 | `seedMockMemoir()` | App.tsx (开发模式) | 开发环境模拟数据种子 |
 | `bookFormat.ts` | 函数 | 书稿格式化函数 | BookReader.tsx | 回忆录内容格式化 |
-| `phaseCopy.ts` | 函数 | 阶段文案函数 | App.tsx | 对话阶段状态文案 |
+| `phaseCopy.ts` | 函数 | 阶段文案函数 | StudioPage.tsx | 对话阶段状态文案 |
 | `session.ts` | 函数 | 会话管理函数 | App.tsx | 创建/管理访谈会话 |
 
 ## 类型定义 (types.ts)
@@ -64,12 +64,20 @@ const copy: { zh: {...}, en: {...} }
 ## 下游消费者 (TO)
 
 - `src/App.tsx` (主要消费者)
+- `src/StudioPage.tsx` (工作台页面)
 - `src/components/ui/` (通过 utils.ts)
 
 ## 模块坐标 (HERE)
 
-位于 `src/lib/`，是前端应用的共享工具层。被 `App.tsx` 和UI组件广泛引用，是整个前端的依赖基础。
+位于 `src/lib/`，是前端应用的共享工具层。
 
 ## 环境变量
 
 - `VITE_API_BASE`: API基础路径，开发模式下通过Vite代理到 `http://localhost:8787`
+
+## 关联文档
+
+- [P2-src 前端应用](../../src/AGENTS.md)
+
+---
+*本文档遵循DIP协议*

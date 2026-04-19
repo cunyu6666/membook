@@ -1,5 +1,8 @@
 /**
- * Shared sub-components used by Studio and BookReader pages.
+ * [WHO]: 提供 BookReader回忆录阅读器、HistoryDialog历史管理、SettingsDialog设置、ImportDialog导入等组件
+ * [FROM]: 依赖 UI 组件库、lib模块 (bookFormat, types, i18n, session)、react-router-dom
+ * [TO]: 被 StudioPage.tsx 和 App.tsx 路由消费，用于回忆录展示和系统配置
+ * [HERE]: src/components/pages/BookReader.tsx，回忆录阅读与系统对话框集合
  */
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -242,7 +245,7 @@ export function SettingsDialog({
   ttsVoice: string;
   isDark: boolean;
   locale: Locale;
-  t: Record<string, unknown>;
+  t: Record<string, string>;
   onClose: () => void;
   onToggleTheme: () => void;
   onToggleLocale: () => void;
@@ -441,6 +444,67 @@ export function ConnectionLine({
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ─── Import Dialog ─── */
+
+export function ImportDialog({
+  locale,
+  onClose,
+  onImport,
+}: {
+  locale: Locale;
+  onClose: () => void;
+  onImport: (content: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const t = copy[locale];
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) {
+      onImport(text.trim());
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl">
+      <Card className="w-full max-w-lg p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Badge>{locale === "zh" ? "导入" : "Import"}</Badge>
+            <h3 className="mt-3 text-xl font-bold tracking-[-0.04em]">
+              {locale === "zh" ? "导入对话记录" : "Import Conversation"}
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {locale === "zh"
+                ? "粘贴任意格式的访谈文本——聊天记录、录音转写、口述笔记，AI 会自动识别角色和问答。"
+                : "Paste any interview text — chat logs, transcriptions, oral notes. AI will auto-detect speakers and Q&A."}
+            </p>
+          </div>
+          <Button variant="secondary" size="icon" onClick={onClose} aria-label={String(t.close)}>
+            <i className="ri-close-line" />
+          </Button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-5 grid gap-3">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={
+              locale === "zh"
+                ? "可以直接粘贴微信聊天记录、访谈逐字稿、或任何口述文本..."
+                : "Paste WeChat chat logs, interview transcripts, or any oral text..."
+            }
+            className="min-h-48 resize-none rounded-lg border border-border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <Button type="submit" disabled={!text.trim()}>
+            {locale === "zh" ? "生成回忆录" : "Generate Memoir"}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

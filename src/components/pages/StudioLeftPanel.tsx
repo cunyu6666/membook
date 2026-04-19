@@ -1,5 +1,8 @@
 /**
- * Studio page left panel — brand, status, connection, rhythm, metrics.
+ * [WHO]: 提供 StudioLeftPanel 工作台左侧面板，包含品牌、状态连接、访谈节奏和指标
+ * [FROM]: 依赖 UI 组件库 (Badge, Button, Card)、BookReader子组件、lib模块
+ * [TO]: 被 StudioPage.tsx 消费，作为工作台三大面板之一
+ * [HERE]: src/components/pages/StudioLeftPanel.tsx，系统状态与导航入口
  */
 import logoImage from "../../assets/logo.jpg";
 import { Badge } from "../ui/Badge";
@@ -24,6 +27,7 @@ export function StudioLeftPanel({
   onOpenSettings,
   onLogout,
   onToggleDark,
+  onImportDialog,
 }: {
   locale: Locale;
   t: Record<string, unknown>;
@@ -38,6 +42,7 @@ export function StudioLeftPanel({
   onOpenSettings: () => void;
   onLogout: () => void;
   onToggleDark: () => void;
+  onImportDialog: () => void;
 }) {
   const elderTurns = session.turns.filter((turn) => turn.role === "elder");
 
@@ -54,12 +59,15 @@ export function StudioLeftPanel({
             <p className="text-lg font-bold">{String(t.appName)}</p>
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-6 gap-2">
           <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "历史" : "History"} onClick={onOpenHistory}>
             <i className="ri-history-line" />
           </Button>
           <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "新访谈" : "New interview"} onClick={onNewInterview}>
             <i className="ri-add-line" />
+          </Button>
+          <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "导入对话" : "Import"} onClick={onImportDialog}>
+            <i className="ri-file-upload-line" />
           </Button>
           <Button variant="secondary" size="icon" aria-label={String(t.theme)} onClick={onToggleDark}>
             <i className={isDark ? "ri-sun-line" : "ri-moon-line"} />

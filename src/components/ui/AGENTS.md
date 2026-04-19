@@ -30,11 +30,11 @@
 ## 下游消费者 (TO)
 
 - `src/App.tsx` (主要消费者)
-- 其他未来组件
+- `src/components/pages/` (页面组件)
 
 ## 模块坐标 (HERE)
 
-位于 `src/components/ui/`，是UI层的基础设施。被 `App.tsx` 直接引用，依赖 `src/lib/utils.ts` 的 `cn()` 函数。
+位于 `src/components/ui/`，是UI层的基础设施。
 
 ## 设计系统
 
@@ -50,3 +50,10 @@
 - 支持毛玻璃效果 (`backdrop-blur`)
 - 暗色模式通过 `.dark` 类切换
 - 使用CSS变量定义颜色系统
+
+## 关联文档
+
+- [P2-src 前端应用](../../src/AGENTS.md)
+
+---
+*本文档遵循DIP协议*

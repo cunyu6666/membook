@@ -1,5 +1,8 @@
 /**
- * NanoPencil launch resolution — finds CLI path and builds launch config.
+ * [WHO]: 提供 resolveNanoPencilLaunch 函数，解析nanoPencil CLI路径并构建启动配置
+ * [FROM]: 依赖Node.js fs和path模块、PATH环境变量
+ * [TO]: 被server/index.ts消费，用于确定nanoPencil启动方式
+ * [HERE]: server/lib/nanopencilLauncher.ts，nanoPencil CLI路径解析器
  */
 import { accessSync, constants, existsSync } from "node:fs";
 import { delimiter, isAbsolute, join, resolve } from "node:path";

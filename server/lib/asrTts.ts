@@ -1,5 +1,8 @@
 /**
- * Bailian ASR / TTS WebSocket and HTTP wrappers.
+ * [WHO]: 提供 transcribeWithBailian 和 synthesizeWithBailian 函数，封装百炼ASR/TTS WebSocket和HTTP协议
+ * [FROM]: 依赖Node.js ws库、百炼API (WebSocket/HTTP)
+ * [TO]: 被server/index.ts消费，用于语音识别和语音合成
+ * [HERE]: server/lib/asrTts.ts，百炼语音服务桥接层
  */
 import WebSocket from "ws";
 

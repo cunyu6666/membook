@@ -10,7 +10,7 @@
 
 | 文件 | 类型 | WHO (提供) | TO (使用者) | 说明 |
 |------|------|-----------|------------|------|
-| `useAudioRecorder.ts` | Hook | `useAudioRecorder()` | App.tsx | 音频录制Hook，支持PCM16编码、WAV导出 |
+| `useAudioRecorder.ts` | Hook | `useAudioRecorder()` | StudioPage.tsx | 音频录制Hook，支持PCM16编码、WAV导出 |
 | `useSpeechRecognition.ts` | Hook | `useSpeechRecognition(lang)` | App.tsx | 语音识别Hook，基于Web Speech API |
 
 ## useAudioRecorder
@@ -67,14 +67,21 @@
 
 ## 下游消费者 (TO)
 
-- `src/App.tsx` (唯一消费者)
+- `src/StudioPage.tsx` (主要消费者)
 
 ## 模块坐标 (HERE)
 
-位于 `src/hooks/`，是音频能力的封装层。被 `App.tsx` 直接引用，依赖浏览器原生API，不依赖其他模块。
+位于 `src/hooks/`，是音频能力的封装层。
 
 ## 注意事项
 
 1. **浏览器兼容性**: Web Speech API在非Chrome浏览器可能不可用，Hook返回 `isSupported` 标志
 2. **权限**: 音频录制需要用户授权麦克风权限
 3. **自动播放限制**: 浏览器可能阻止自动播放音频，需要用户交互触发
+
+## 关联文档
+
+- [P2-src 前端应用](../../src/AGENTS.md)
+
+---
+*本文档遵循DIP协议*

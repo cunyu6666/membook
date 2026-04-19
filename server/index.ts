@@ -92,6 +92,15 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "POST" && request.url === "/api/import/parse") {
+      const body = await readJson<{ text: string }>(request);
+      const result = nanoPencilRpc
+        ? await parseImportWithNanoPencil(body.text)
+        : localImportParse(body.text);
+      sendJson(response, 200, result);
+      return;
+    }
+
     sendJson(response, 404, { error: "Not found" });
   } catch (error) {
     sendJson(response, 500, { error: error instanceof Error ? error.message : "Unknown server error" });
@@ -174,4 +183,54 @@ function buildInterviewPrompt(session: Session, answer: string) {
     "",
     `Latest elder answer: ${answer}`,
   ].join("\n");
+}
+
+function buildImportParsePrompt(text: string) {
+  return [
+    "You are a transcript analyzer for an oral-history interview product. Given raw conversation text (which may be from WeChat chat, a recorded interview, or any informal conversation), your job is to identify who is the interviewer/questioner and who is the elder/storyteller, and extract each speaker's turns.",
+    'Return ONLY valid JSON with this schema: {"turns": [{"role": "agent" or "elder", "content": "the spoken text"}]}',
+    'Rules: "agent" is the person asking questions or guiding the conversation. "elder" is the person sharing memories/stories.',
+    "Preserve the original language and tone of each turn. Do not summarize or rewrite.",
+    "If the text is not a conversation or is empty, return {\"turns\": []}.",
+    "",
+    "Raw text to parse:",
+    "=== BEGIN ===",
+    text.slice(0, 8000),
+    "=== END ===",
+  ].join("\n");
+}
+
+async function parseImportWithNanoPencil(text: string) {
+  if (!nanoPencilRpc) throw new Error("nanoPencil RPC is not available");
+  const prompt = buildImportParsePrompt(text);
+  const rawText = await nanoPencilRpc.promptAndWait(prompt);
+  const cleaned = rawText.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+  try {
+    const parsed = JSON.parse(cleaned) as { turns?: Array<{ role?: string; content?: string }> };
+    if (Array.isArray(parsed.turns) && parsed.turns.length > 0) {
+      const turns = parsed.turns
+        .filter((t) => t.content?.trim())
+        .map((t) => ({ role: (t.role === "agent" || t.role === "elder") ? t.role : "elder", content: t.content!.trim() }));
+      return { turns };
+    }
+  } catch {}
+  return localImportParse(text);
+}
+
+function localImportParse(text: string) {
+  // 简单启发式：按空行分段，含问号/疑段为agent，其余为elder
+  const segments = text.split(/\n\s*\n/).map((s) => s.replace(/\n/g, " ").trim()).filter(Boolean);
+  if (segments.length === 0) return { turns: [] };
+
+  const turns: Array<{ role: "agent" | "elder"; content: string }> = [];
+  for (const seg of segments) {
+    const hasQuestion = /[？?]$/.test(seg) || /^(谁|什么|怎么|哪里|为什么|何时|which|what|how|where|when|why)\b/i.test(seg);
+    const hasAnswerMarker = /^(我|我记得|那时候|后来|是的|对)/i.test(seg);
+    if (hasQuestion && !hasAnswerMarker) {
+      turns.push({ role: "agent", content: seg });
+    } else {
+      turns.push({ role: "elder", content: seg });
+    }
+  }
+  return { turns };
 }

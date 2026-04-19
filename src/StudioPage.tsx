@@ -5,7 +5,7 @@
  */
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { BookReader } from "./components/pages/BookReader";
-import { HistoryDialog, SettingsDialog } from "./components/pages/BookReader";
+import { HistoryDialog, SettingsDialog, ImportDialog } from "./components/pages/BookReader";
 import { StudioLeftPanel } from "./components/pages/StudioLeftPanel";
 import { StudioCenterPanel } from "./components/pages/StudioCenterPanel";
 import { StudioRightPanel } from "./components/pages/StudioRightPanel";
@@ -44,6 +44,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [isCallActive, setIsCallActive] = useState(false);
   const [conversationPhase, setConversationPhase] = useState<ConversationPhase>("idle");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [, setTtsAudioUrl] = useState("");
   const [bookDraft, setBookDraft] = useState<BookDraft | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
@@ -216,6 +217,64 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     } finally { setIsGenerating(false); }
   }
 
+  async function handleImportContent(content: string) {
+    // 调用后端 AI 解析原始文本，无需分割线格式
+    setError("");
+    setIsImportOpen(false);
+    setIsGenerating(true);
+
+    let turns: InterviewTurn[] = [];
+    try {
+      const response = await fetch("http://localhost:8787/api/import/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content }),
+      });
+      const data = await response.json();
+      if (Array.isArray(data.turns) && data.turns.length > 0) {
+        turns = data.turns.map((t: { role: "agent" | "elder"; content: string }) => nowTurn(t.role, t.content));
+      }
+    } catch {
+      // 回退：简单按行分割
+      const lines = content.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      for (let i = 0; i < lines.length; i++) {
+        turns.push(nowTurn(i % 2 === 0 ? "agent" : "elder", lines[i]));
+      }
+    }
+
+    if (turns.length === 0) {
+      setError(locale === "zh" ? "无法解析对话内容" : "Cannot parse conversation content");
+      setIsGenerating(false);
+      return;
+    }
+
+    const importSession: InterviewSession = {
+      id: crypto.randomUUID(),
+      turns,
+      insights: [],
+      readiness: 100,
+    };
+
+    try {
+      const draft = await generateBook(importSession);
+      setBookDraft(draft);
+      setIsBookOpen(true);
+    } catch {
+      const fallbackContent = turns.filter((t) => t.role === "elder").map((t) => t.content).join("\n\n");
+      setBookDraft({
+        title: t.bookFallbackTitle,
+        subtitle: t.bookFallbackSub,
+        soulSentence: locale === "zh" ? "那些慢慢说出的日子，會被家人記住。" : "The days told slowly can be kept.",
+        chapters: [{ title: t.bookChapter1, summary: fallbackContent.slice(0, 100), contentMarkdown: `# ${t.bookChapter1}\n\n${fallbackContent}` }],
+        excerpt: fallbackContent,
+      });
+      setIsBookOpen(true);
+      setError(t.errBookFallback);
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
       if (!(target instanceof HTMLElement)) return false;
@@ -244,7 +303,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           bailianEndpoint={bailianEndpoint} bailianTtsEndpoint={bailianTtsEndpoint}
           onOpenHistory={() => setIsHistoryOpen(true)} onNewInterview={handleNewInterview}
           onOpenSettings={() => setIsSettingsOpen(true)} onLogout={handleLogout}
-          onToggleDark={() => setIsDark((v) => !v)}
+          onToggleDark={() => setIsDark((v) => !v)} onImportDialog={() => setIsImportOpen(true)}
         />
         <StudioCenterPanel
           locale={locale} t={t} isCallActive={isCallActive}
@@ -279,6 +338,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           onResetVoiceDefaults={() => { setBailianEndpoint(defaultBailianEndpoint); setBailianAsrModel("fun-asr-realtime-2026-02-28"); setBailianTtsEndpoint(defaultBailianTtsEndpoint); setBailianTtsModel("qwen3-tts-instruct-flash-realtime"); setTtsVoice("Cherry"); }}
         />
       )}
+      {isImportOpen && <ImportDialog locale={locale} onClose={() => setIsImportOpen(false)} onImport={handleImportContent} />}
     </main>
   );
 }
