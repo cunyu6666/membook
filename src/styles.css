@@ -1,0 +1,112 @@
+/**
+ * [WHO]: 提供全局CSS变量、Tailwind主题配置、动画定义、字体导入
+ * [FROM]: 依赖Tailwind CSS 4、Google Fonts (Noto Serif SC, Figtree)
+ * [TO]: 被所有前端组件消费，定义设计系统颜色/字体/动画
+ * [HERE]: src/styles.css，前端样式系统核心
+ */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --background: 42 38% 94%;
+  --foreground: 220 30% 12%;
+  --muted: 36 18% 72%;
+  --muted-foreground: 220 13% 38%;
+  --card: 42 42% 98%;
+  --card-foreground: 220 30% 12%;
+  --border: 36 24% 78%;
+  --primary: 18 82% 47%;
+  --primary-foreground: 40 80% 96%;
+  --accent: 177 44% 31%;
+  --accent-foreground: 40 80% 96%;
+  --ring: 18 82% 47%;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 218 32% 8%;
+  --foreground: 43 38% 92%;
+  --muted: 220 16% 24%;
+  --muted-foreground: 40 16% 70%;
+  --card: 219 30% 11%;
+  --card-foreground: 43 38% 92%;
+  --border: 218 18% 22%;
+  --primary: 18 88% 58%;
+  --primary-foreground: 218 32% 8%;
+  --accent: 175 42% 42%;
+  --accent-foreground: 218 32% 8%;
+  --ring: 18 88% 58%;
+}
+
+@theme {
+  --font-display: "Figtree", sans-serif;
+  --font-serif-cn: "Noto Serif SC", serif;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-ring: hsl(var(--ring));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 12% 10%, hsl(var(--primary) / 0.18), transparent 30rem),
+    radial-gradient(circle at 84% 4%, hsl(var(--accent) / 0.18), transparent 28rem),
+    linear-gradient(135deg, hsl(var(--background)), hsl(var(--background)));
+  color: hsl(var(--foreground));
+  font-family: var(--font-display);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.42);
+  }
+  70% {
+    box-shadow: 0 0 0 18px hsl(var(--primary) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+  }
+}
+
+.animate-rise-in {
+  animation: rise-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.recording-ring {
+  animation: pulse-ring 1.45s infinite;
+}
