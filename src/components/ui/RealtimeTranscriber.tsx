@@ -4,6 +4,31 @@ import { AnimatePresence, motion } from "framer-motion"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "../../lib/utils"
 
+type SpeechRecognitionResultLike = {
+  isFinal: boolean
+  0: { transcript: string }
+}
+
+type SpeechRecognitionEventLike = {
+  results: {
+    length: number
+    [index: number]: SpeechRecognitionResultLike
+  }
+}
+
+type SpeechRecognitionLike = {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+
 // Memoized background aura effect
 const BackgroundAura = ({
   isActive,
@@ -23,7 +48,7 @@ const BackgroundAura = ({
         style={{
           height: "45%",
           background:
-            "radial-gradient(ellipse 100% 100% at 50% 100%, hsl(var(--primary) / 0.35) 0%, hsl(var(--accent) / 0.25) 35%, transparent 70%)",
+            "radial-gradient(ellipse 100% 100% at 50% 100%, oklch(var(--primary) / 0.35) 0%, oklch(var(--accent) / 0.25) 35%, transparent 70%)",
           filter: "blur(80px)",
         }}
       />
@@ -33,7 +58,7 @@ const BackgroundAura = ({
         style={{
           height: "35%",
           background:
-            "radial-gradient(ellipse 100% 100% at 50% 100%, hsl(var(--primary) / 0.3) 0%, transparent 60%)",
+            "radial-gradient(ellipse 100% 100% at 50% 100%, oklch(var(--primary) / 0.3) 0%, transparent 60%)",
           filter: "blur(60px)",
           animationDuration: "4s",
         }}
@@ -121,12 +146,10 @@ const TranscriptDisplay = ({
 // Bottom recording controls
 const BottomControls = ({
   isRecording,
-  isConnecting,
   isMac,
   onToggle,
 }: {
   isRecording: boolean
-  isConnecting: boolean
   isMac: boolean
   onToggle: () => void
 }) => {
@@ -162,18 +185,16 @@ export function RealtimeTranscriber({
   onTranscript,
   onStateChange,
   isSupported,
-  bailianApiKey,
 }: {
   onTranscript: (text: string) => void
   onStateChange?: (state: TranscriberState) => void
   isSupported: boolean
-  bailianApiKey: string
 }) {
   const [state, setState] = useState<TranscriberState>("idle")
   const [partialText, setPartialText] = useState("")
   const [finalText, setFinalText] = useState("")
   const [isMac, setIsMac] = useState(true)
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const finalChunksRef = useRef<string[]>([])
 
   useEffect(() => {
@@ -194,9 +215,12 @@ export function RealtimeTranscriber({
     setPartialText("")
 
     // Use Web Speech API for realtime transcription
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor
+      webkitSpeechRecognition?: SpeechRecognitionConstructor
+    }
     const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition
+      speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
 
     if (!SpeechRecognition) {
       setState("error")
@@ -208,7 +232,7 @@ export function RealtimeTranscriber({
     recognition.interimResults = true
     recognition.lang = "zh-CN"
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       let interim = ""
       let final = ""
 
@@ -381,7 +405,6 @@ export function RealtimeTranscriber({
         {/* Bottom controls */}
         <BottomControls
           isRecording={state === "recording"}
-          isConnecting={state === "connecting"}
           isMac={isMac}
           onToggle={stopRecording}
         />
