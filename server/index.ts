@@ -109,24 +109,26 @@ const server = createServer(async (request, response) => {
     // 这样避免前端直接暴露 API Key，保证安全性
 
     if (request.method === "POST" && request.url === "/api/cloud/agent/interview") {
-      const body = await readJson<{ session: Session; answer: string }>(request);
-      const result = await proxyToCloud("/api/v1/sessions/-/turns", body);
+      const token = extractAuthToken(request);
+      const body = await readJson<{ user_text: string }>(request);
+      const result = await proxyToCloud("/api/v1/sessions/-/turns", body, "POST", token);
       sendJson(response, 200, result);
       return;
     }
 
     if (request.method === "POST" && request.url === "/api/cloud/book/generate") {
-      const body = await readJson<{ session: Session }>(request);
+      const token = extractAuthToken(request);
       // 先触发渲染
-      await proxyToCloud("/api/v1/booklets/current/render", body, "POST");
+      await proxyToCloud("/api/v1/booklets/current/render", undefined, "POST", token);
       // 再获取完整书籍
-      const result = await proxyToCloud("/api/v1/complete-books/current", undefined, "GET");
+      const result = await proxyToCloud("/api/v1/complete-books/current", undefined, "GET", token);
       sendJson(response, 200, result);
       return;
     }
 
     if (request.method === "GET" && request.url === "/api/cloud/sessions/latest") {
-      const result = await proxyToCloud("/api/v1/sessions/latest-unfinished", undefined, "GET");
+      const token = extractAuthToken(request);
+      const result = await proxyToCloud("/api/v1/sessions/latest-unfinished", undefined, "GET", token);
       sendJson(response, 200, result);
       return;
     }
@@ -135,8 +137,9 @@ const server = createServer(async (request, response) => {
       // POST /api/cloud/sessions -> 创建新会话
       const match = request.url.match(/^\/api\/cloud\/sessions$/);
       if (match) {
+        const token = extractAuthToken(request);
         const body = await readJson<{ topic_code?: string }>(request);
-        const result = await proxyToCloud("/api/v1/sessions", body);
+        const result = await proxyToCloud("/api/v1/sessions", body, "POST", token);
         sendJson(response, 200, result);
         return;
       }
@@ -144,8 +147,9 @@ const server = createServer(async (request, response) => {
       const turnMatch = request.url.match(/^\/api\/cloud\/sessions\/([^/]+)\/turns$/);
       if (turnMatch) {
         const sessionId = turnMatch[1];
+        const token = extractAuthToken(request);
         const body = await readJson<{ user_text: string }>(request);
-        const result = await proxyToCloud(`/api/v1/sessions/${sessionId}/turns`, body);
+        const result = await proxyToCloud(`/api/v1/sessions/${sessionId}/turns`, body, "POST", token);
         sendJson(response, 200, result);
         return;
       }
@@ -198,10 +202,12 @@ async function callNanoPencilRpc(session: Session, answer: string) {
 /**
  * 云端代理 - 将请求转发到 Spring Boot 后端
  * 遵循 Runtime 接入指南的架构：server -> backend -> runtime-service
+ * 透传前端请求的 Authorization token 到 backend
  */
-async function proxyToCloud<T = unknown>(path: string, body?: unknown, method: "GET" | "POST" = "POST"): Promise<T> {
+async function proxyToCloud<T = unknown>(path: string, body?: unknown, method: "GET" | "POST" = "POST", authToken?: string): Promise<T> {
   const url = `${cloudBackendUrl}${path}`;
-  const token = process.env.CLOUD_BACKEND_TOKEN ?? "";
+  // 优先使用前端传来的 token，其次使用服务端配置的 token
+  const token = authToken || process.env.CLOUD_BACKEND_TOKEN || "";
 
   const response = await fetch(url, {
     method,
@@ -217,6 +223,13 @@ async function proxyToCloud<T = unknown>(path: string, body?: unknown, method: "
   }
 
   return response.json() as Promise<T>;
+}
+
+/**
+ * 从请求中提取 Authorization header
+ */
+function extractAuthToken(request: import("node:http").IncomingMessage): string | undefined {
+  return request.headers.authorization;
 }
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown) {

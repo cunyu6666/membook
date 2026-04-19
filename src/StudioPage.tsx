@@ -62,11 +62,11 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [agentMode, setAgentMode] = useState<AgentMode>(() => (localStorage.getItem("membook.agentMode") as AgentMode) || "local");
 
   // AgentApi 实例 - 根据模式注入（遵循DIP）
-  const [agentApi, setAgentApi] = useState<AgentApi>(() => createAgentApi(agentMode));
+  const [agentApi, setAgentApi] = useState<AgentApi>(() => createAgentApi(agentMode, { getToken: () => localStorage.getItem("membook.token") }));
 
   // 当模式切换时重新创建 AgentApi 实例
   useEffect(() => {
-    setAgentApi(createAgentApi(agentMode));
+    setAgentApi(createAgentApi(agentMode, { getToken: () => localStorage.getItem("membook.token") }));
   }, [agentMode]);
 
   // Concurrency guards
