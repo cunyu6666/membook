@@ -25,6 +25,10 @@ export function StudioRightPanel({
   onOpenBook,
   onUpdateTurn,
   onDeleteTurn,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: {
   locale: Locale;
   t: CopyKeys;
@@ -38,6 +42,10 @@ export function StudioRightPanel({
   onOpenBook: () => void;
   onUpdateTurn: (turnId: string, newContent: string) => void;
   onDeleteTurn: (turnId: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }) {
   const [editingTurnId, setEditingTurnId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
@@ -61,25 +69,43 @@ export function StudioRightPanel({
   }
 
   return (
-    <section className="grid min-h-0 gap-4">
-      <Card className="animate-rise-in flex min-h-0 flex-col p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:180ms]">
+    <section className="flex min-h-0 flex-col gap-4">
+      <Card className="animate-rise-in flex min-h-0 flex-1 flex-col p-4 shadow-[0_16px_42px_oklch(var(--foreground)/0.06)] ring-1 ring-primary/7 [animation-delay:180ms]">
         <div className="flex items-center justify-between gap-4">
           <h2 className="font-serif-cn text-xl font-bold tracking-normal">
             {t.transcript}
           </h2>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onGenerateBook}
-            disabled={isGenerating || elderTurns.length === 0}
-          >
-            {isGenerating ? (
-              <i className="ri-loader-4-line animate-spin" />
-            ) : (
-              <i className="ri-book-3-line" />
-            )}
-            {t.generate}
-          </Button>
+          <div className="flex items-center gap-1">
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/42 hover:text-foreground disabled:opacity-30"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title={locale === "zh" ? "撤销 (Ctrl+Z)" : "Undo (Ctrl+Z)"}
+            >
+              <i className="ri-arrow-go-back-line text-lg" />
+            </button>
+            <button
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/42 hover:text-foreground disabled:opacity-30"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title={locale === "zh" ? "重做 (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)"}
+            >
+              <i className="ri-arrow-go-forward-line text-lg" />
+            </button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onGenerateBook}
+              disabled={isGenerating || elderTurns.length === 0}
+            >
+              {isGenerating ? (
+                <i className="ri-loader-4-line animate-spin" />
+              ) : (
+                <i className="ri-book-3-line" />
+              )}
+              {t.generate}
+            </Button>
+          </div>
         </div>
         <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-auto pr-1">
           {session.turns.length === 1 ? (

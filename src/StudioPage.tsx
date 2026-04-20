@@ -61,6 +61,13 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [session, setSession] = useState<InterviewSession>(() => createInitialSession("zh"));
   const [agentMode] = useState<AgentMode>(() => (localStorage.getItem("membook.agentMode") as AgentMode) || "local");
 
+  // Undo/Redo for turn edits
+  type TurnEditAction =
+    | { type: "update"; turnId: string; prevContent: string; newContent: string }
+    | { type: "delete"; turn: InterviewTurn; index: number };
+  const [editHistory, setEditHistory] = useState<TurnEditAction[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
   // AgentApi 实例 - 根据模式注入（遵循DIP）
   const [agentApi, setAgentApi] = useState<AgentApi>(() => createAgentApi(agentMode, { getToken: () => localStorage.getItem("membook.token") }));
 
@@ -119,23 +126,28 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     });
   }, [locale, t.emotionalArc, t.firstQuestion, t.people, t.places]);
 
-  // Save history only when session actually changes (guard against stale equality)
-  const lastSavedSessionId = useRef(session.id);
-  const lastSavedTurnCount = useRef(session.turns.length);
+  // Save history when session changes (including content edits)
+  const lastSavedRef = useRef<string>("");
   useEffect(() => {
-    const isNewTurn = session.turns.length !== lastSavedTurnCount.current;
-    const isNewDraft = Boolean(bookDraft);
-    if (!isNewTurn && !isNewDraft) return;
     if (session.turns.length <= 1 && !bookDraft) return;
-    lastSavedSessionId.current = session.id;
-    lastSavedTurnCount.current = session.turns.length;
+    const serialized = JSON.stringify({ turns: session.turns, insights: session.insights, readiness: session.readiness });
+    if (serialized === lastSavedRef.current) return;
+    lastSavedRef.current = serialized;
     const saved: SavedMemoir = { id: session.id, title: bookDraft?.title ?? makeHistoryTitle(session, locale), updatedAt: new Date().toISOString(), session, bookDraft };
     setHistory((current) => [saved, ...current.filter((item) => item.id !== session.id)].slice(0, 20));
-  }, [bookDraft, locale, session]);
+  }, [bookDraft, locale, session.id, session.turns, session.insights, session.readiness]);
 
   function handleLogout() { localStorage.removeItem("membook.auth"); onLogout(); }
-  function handleNewInterview() { setSession(createInitialSession(locale)); setBookDraft(null); setTypedAnswer(""); setTtsAudioUrl(""); setConversationPhase("idle"); setIsCallActive(false); }
-  function handleLoadHistory(item: SavedMemoir) { setSession(item.session); setBookDraft(item.bookDraft); setIsHistoryOpen(false); setIsBookOpen(Boolean(item.bookDraft)); setTypedAnswer(""); setConversationPhase("idle"); setIsCallActive(false); }
+  function handleNewInterview() {
+    const hasContent = session.turns.length > 1 || bookDraft;
+    if (hasContent && !window.confirm(locale === "zh"
+      ? "当前访谈尚未保存，确定要开始新的访谈吗？"
+      : "Current interview is not saved. Start a new one?")) {
+      return;
+    }
+    setSession(createInitialSession(locale)); setBookDraft(null); setTypedAnswer(""); setTtsAudioUrl(""); setConversationPhase("idle"); setIsCallActive(false); setEditHistory([]); setHistoryIndex(-1);
+  }
+  function handleLoadHistory(item: SavedMemoir) { setSession(item.session); setBookDraft(item.bookDraft); setIsHistoryOpen(false); setIsBookOpen(Boolean(item.bookDraft)); setTypedAnswer(""); setConversationPhase("idle"); setIsCallActive(false); setEditHistory([]); setHistoryIndex(-1); }
   function handleDeleteHistory(id: string) { setHistory((current) => current.filter((item) => item.id !== id)); if (session.id === id) handleNewInterview(); }
   function handleRenameHistory(id: string, newTitle: string) {
     setHistory((current) =>
@@ -147,6 +159,10 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     setHistory((current) => [cloned, ...current].slice(0, 20));
   }
   function handleUpdateTurn(turnId: string, newContent: string) {
+    const prevTurn = session.turns.find((t) => t.id === turnId);
+    if (!prevTurn || prevTurn.content === newContent) return;
+    setEditHistory((prev) => [...prev.slice(0, historyIndex + 1), { type: "update", turnId, prevContent: prevTurn.content, newContent }]);
+    setHistoryIndex((prev) => prev + 1);
     setSession((prev) => ({
       ...prev,
       turns: prev.turns.map((t) => (t.id === turnId ? { ...t, content: newContent } : t)),
@@ -154,10 +170,32 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     }));
   }
   function handleDeleteTurn(turnId: string) {
-    setSession((prev) => ({
-      ...prev,
-      turns: prev.turns.filter((t) => t.id !== turnId),
-    }));
+    const turn = session.turns.find((t) => t.id === turnId);
+    const index = session.turns.findIndex((t) => t.id === turnId);
+    if (!turn) return;
+    setEditHistory((prev) => [...prev.slice(0, historyIndex + 1), { type: "delete", turn, index }]);
+    setHistoryIndex((prev) => prev + 1);
+    setSession((prev) => ({ ...prev, turns: prev.turns.filter((t) => t.id !== turnId) }));
+  }
+  function handleUndo() {
+    if (historyIndex < 0) return;
+    const action = editHistory[historyIndex];
+    if (action.type === "update") {
+      setSession((prev) => ({ ...prev, turns: prev.turns.map((t) => t.id === action.turnId ? { ...t, content: action.prevContent } : t) }));
+    } else {
+      setSession((prev) => { const turns = [...prev.turns]; turns.splice(action.index, 0, action.turn); return { ...prev, turns }; });
+    }
+    setHistoryIndex((prev) => prev - 1);
+  }
+  function handleRedo() {
+    if (historyIndex >= editHistory.length - 1) return;
+    const action = editHistory[historyIndex + 1];
+    if (action.type === "update") {
+      setSession((prev) => ({ ...prev, turns: prev.turns.map((t) => t.id === action.turnId ? { ...t, content: action.newContent } : t) }));
+    } else {
+      setSession((prev) => ({ ...prev, turns: prev.turns.filter((t) => t.id !== action.turn.id) }));
+    }
+    setHistoryIndex((prev) => prev + 1);
   }
 
   async function submitAnswerText(answer: string, shouldSpeakResponse = false) {
@@ -357,6 +395,20 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const handlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
     handlerRef.current = (event: KeyboardEvent) => {
+      // Undo: Ctrl+Z / Cmd+Z
+      if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+        if (isHistoryOpen || isBookOpen || isSettingsOpen) return;
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+      // Redo: Ctrl+Shift+Z / Cmd+Shift+Z
+      if ((event.ctrlKey || event.metaKey) && event.key === "z" && event.shiftKey) {
+        if (isHistoryOpen || isBookOpen || isSettingsOpen) return;
+        event.preventDefault();
+        handleRedo();
+        return;
+      }
       if (event.code !== "Space" || event.repeat) return;
       function isTypingTarget(target: EventTarget | null) {
         if (!(target instanceof HTMLElement)) return false;
@@ -439,6 +491,8 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           isGenerating={isGenerating} elderTurns={elderTurns} isAsking={isAsking} error={error}
           onGenerateBook={handleGenerateBook} onOpenBook={() => setIsBookOpen(true)}
           onUpdateTurn={handleUpdateTurn} onDeleteTurn={handleDeleteTurn}
+          onUndo={handleUndo} onRedo={handleRedo}
+          canUndo={historyIndex >= 0} canRedo={historyIndex < editHistory.length - 1}
         />
       </div>
 
