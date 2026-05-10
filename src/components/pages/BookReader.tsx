@@ -697,33 +697,39 @@ export function SettingsDialog({
             onChange={onBailianApiKeyChange}
           />
 
-          <div className="studio-settings-grid">
-            <Field
-              label={t.bailianEndpoint}
-              value={bailianEndpoint}
-              onChange={onBailianEndpointChange}
-            />
-            <Field
-              label={t.asrModel}
-              value={bailianAsrModel}
-              onChange={onBailianAsrModelChange}
-            />
-          </div>
-
-          <div className="studio-settings-grid">
-            <Field
-              label={t.ttsEndpoint}
-              value={bailianTtsEndpoint}
-              onChange={onBailianTtsEndpointChange}
-            />
-            <Field
-              label={t.ttsModel}
-              value={bailianTtsModel}
-              onChange={onBailianTtsModelChange}
-            />
-          </div>
-
           <Field label={t.ttsVoice} value={ttsVoice} onChange={onTtsVoiceChange} />
+
+          <details className="studio-settings-advanced">
+            <summary>
+              <span>{locale === "zh" ? "高级语音参数" : "Advanced voice options"}</span>
+              <i className="ri-arrow-down-s-line" />
+            </summary>
+            <div className="studio-settings-grid">
+              <Field
+                label={t.bailianEndpoint}
+                value={bailianEndpoint}
+                onChange={onBailianEndpointChange}
+              />
+              <Field
+                label={t.asrModel}
+                value={bailianAsrModel}
+                onChange={onBailianAsrModelChange}
+              />
+            </div>
+
+            <div className="studio-settings-grid">
+              <Field
+                label={t.ttsEndpoint}
+                value={bailianTtsEndpoint}
+                onChange={onBailianTtsEndpointChange}
+              />
+              <Field
+                label={t.ttsModel}
+                value={bailianTtsModel}
+                onChange={onBailianTtsModelChange}
+              />
+            </div>
+          </details>
         </div>
       </motion.div>
     </motion.div>

@@ -1125,6 +1125,27 @@ select,
   font-style: italic;
 }
 
+.studio-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.42rem;
+}
+
+.studio-history-meta small {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.studio-history-meta span {
+  border: 1px solid var(--studio-rule);
+  border-radius: 999px;
+  color: var(--studio-ink-soft);
+  padding: 0.14rem 0.48rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
 .studio-history-list input,
 .studio-turn-list textarea {
   width: 100%;
@@ -1573,6 +1594,48 @@ select,
 
 .studio-settings-field input:focus {
   border-color: var(--studio-accent);
+}
+
+.studio-settings-advanced {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--studio-rule);
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--studio-paper-2), var(--studio-paper) 42%);
+  padding: 0.85rem;
+}
+
+.studio-settings-advanced summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  color: var(--studio-ink);
+  font-family: var(--font-serif-cn);
+  font-size: 0.94rem;
+  list-style: none;
+}
+
+.studio-settings-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.studio-settings-advanced summary i {
+  color: var(--studio-ink-soft);
+  transition: transform 180ms ease;
+}
+
+.studio-settings-advanced[open] summary i {
+  transform: rotate(180deg);
+}
+
+.studio-settings-advanced[open] {
+  background: var(--studio-paper-2);
+}
+
+.studio-settings-advanced .studio-settings-grid {
+  margin-top: 0.8rem;
 }
 
 .studio-connection-line {

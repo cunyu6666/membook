@@ -700,7 +700,6 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
         title={currentTitle}
         isDark={isDark}
         onNew={handleNewInterview}
-        onOpenPhotos={() => setIsPhotosOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onToggleTheme={() => setIsDark((value) => !value)}
         onOpenSettings={() => setIsSettingsOpen(true)}
@@ -725,7 +724,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
                 onClick={() => handleLoadHistory(item)}
               >
                 <span>{item.title}</span>
-                <small>{formatShortDate(item.updatedAt)} · {item.bookDraft ? "已成书" : "素材中"}</small>
+                <small>{formatShortDate(item.updatedAt)} · {getMemoirStatus(item, locale)}</small>
               </button>
             ))}
             {history.length === 0 && (
@@ -744,10 +743,10 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           isVoiceBusy={isVoiceBusy}
           isRecording={recorder.isRecording}
           elapsedSec={elapsedSec}
-        error={error}
-        notice={studioNotice}
-        onSpeakQuestion={handleSpeakQuestion}
-        onCallButton={handleCallButton}
+          error={error}
+          notice={studioNotice}
+          onSpeakQuestion={handleSpeakQuestion}
+          onCallButton={handleCallButton}
         />
 
         <aside className="studio-rail studio-rail-right">
@@ -766,7 +765,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
             <StudioMetric label={locale === "zh" ? "字数" : "Words"} value={storyCharacterCount.toLocaleString()} />
             <StudioMetric label={locale === "zh" ? "照片" : "Photos"} value={photoMemories.length} />
             <StudioMetric label={locale === "zh" ? "问答" : "Turns"} value={elderTurns.length} />
-            <StudioMetric label={locale === "zh" ? "状态" : "Paid"} value={session.isPaid ? "已付" : "未付"} />
+            <StudioMetric label={locale === "zh" ? "状态" : "Status"} value={session.isPaid ? (locale === "zh" ? "已付" : "Paid") : (locale === "zh" ? "未付" : "Unpaid")} />
           </div>
           <div>
             <StudioEyebrow>{locale === "zh" ? "材料目录" : "Materials"}</StudioEyebrow>
@@ -889,7 +888,6 @@ function StudioRibbon({
   title,
   isDark,
   onNew,
-  onOpenPhotos,
   onOpenHistory,
   onToggleTheme,
   onOpenSettings,
@@ -899,7 +897,6 @@ function StudioRibbon({
   title: string;
   isDark: boolean;
   onNew: () => void;
-  onOpenPhotos: () => void;
   onOpenHistory: () => void;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
@@ -919,7 +916,6 @@ function StudioRibbon({
       </div>
       <div className="studio-ribbon-actions">
         <StudioIconButton label={locale === "zh" ? "新建" : "New"} icon="ri-add-line" onClick={onNew} />
-        <StudioIconButton label={locale === "zh" ? "老照片记忆" : "Photo memories"} icon="ri-gallery-line" onClick={onOpenPhotos} />
         <StudioIconButton label={locale === "zh" ? "历史" : "History"} icon="ri-time-line" onClick={onOpenHistory} />
         <StudioIconButton label={locale === "zh" ? "深浅色" : "Theme"} icon={isDark ? "ri-sun-line" : "ri-moon-line"} onClick={onToggleTheme} />
         <StudioIconButton label={locale === "zh" ? "设置" : "Settings"} icon="ri-settings-3-line" onClick={onOpenSettings} />
@@ -1133,7 +1129,12 @@ function HistorySheet({
                 ) : (
                   <strong>{item.title}</strong>
                 )}
-                <small>{formatShortDate(item.updatedAt)} · {item.session.turns.length} turns · {item.bookDraft ? "已成书" : "素材中"} {item.id === activeId ? "· 当前" : ""}</small>
+                <div className="studio-history-meta">
+                  <small>{formatShortDate(item.updatedAt)} · {item.id === activeId ? (locale === "zh" ? "当前" : "Current") : getMemoirStatus(item, locale)}</small>
+                  <span>{locale === "zh" ? `${countElderTurns(item)} 轮问答` : `${countElderTurns(item)} answers`}</span>
+                  <span>{locale === "zh" ? `${item.session.photos?.length ?? 0} 张照片` : `${item.session.photos?.length ?? 0} photos`}</span>
+                  <span>{item.session.isPaid ? (locale === "zh" ? "已付费" : "Paid") : (locale === "zh" ? "未付费" : "Unpaid")}</span>
+                </div>
               </div>
             </div>
             <div className="studio-history-tools">
@@ -1641,4 +1642,15 @@ function formatDuration(seconds: number) {
 function toRoman(value: number) {
   const numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
   return numerals[value - 1] ?? String(value).padStart(2, "0");
+}
+
+function countElderTurns(item: SavedMemoir) {
+  return item.session.turns.filter((turn) => turn.role === "elder").length;
+}
+
+function getMemoirStatus(item: SavedMemoir, locale: Locale) {
+  if (item.bookDraft) return locale === "zh" ? "已成书" : "Book ready";
+  if ((item.session.photos?.length ?? 0) > 0) return locale === "zh" ? "采集中 · 有照片" : "Collecting · photos";
+  if (countElderTurns(item) > 0) return locale === "zh" ? "采集中" : "Collecting";
+  return locale === "zh" ? "未开始" : "Not started";
 }
