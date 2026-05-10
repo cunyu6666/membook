@@ -50,6 +50,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null);
   const [photoQuestionIndex, setPhotoQuestionIndex] = useState(0);
+  const [studioNotice, setStudioNotice] = useState("");
   const [elapsedSec, setElapsedSec] = useState(0);
   const [, setTtsAudioUrl] = useState("");
   const [bookDraft, setBookDraft] = useState<BookDraft | null>(null);
@@ -113,6 +114,12 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     const timer = window.setInterval(() => setElapsedSec((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
   }, [isCallActive]);
+
+  useEffect(() => {
+    if (!studioNotice) return;
+    const timer = window.setTimeout(() => setStudioNotice(""), 5200);
+    return () => window.clearTimeout(timer);
+  }, [studioNotice]);
 
   useEffect(() => {
     void getApiStatus()
@@ -333,6 +340,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
         setIsAsking(false);
       }
       setPhotoQuestionIndex(nextIndex);
+      setStudioNotice(locale === "zh" ? `继续围绕这张照片追问：第 ${nextIndex + 1} 问 / 3` : `Continuing this photo: question ${nextIndex + 1} of 3`);
       if (shouldSpeakResponse) await speakQuestionText(nextQuestion, { autoResumeRecording: true });
       else setConversationPhase("ready");
       return;
@@ -340,6 +348,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
 
     setActivePhotoId(null);
     setPhotoQuestionIndex(0);
+    setStudioNotice(locale === "zh" ? "这张照片的故事已记录，正在回到原来的访谈线索。" : "This photo story has been captured. Returning to the main interview thread.");
     setIsAsking(true);
     setConversationPhase("thinking");
     setError("");
@@ -544,6 +553,9 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     setPhotoQuestionIndex(0);
     setConversationPhase("ready");
     setIsPhotosOpen(false);
+    setStudioNotice(locale === "zh"
+      ? `已导入 ${memories.length} 张老照片。先围绕“${firstPhoto.fileName}”完成 3 个问题。`
+      : `Imported ${memories.length} photo(s). Starting three questions about "${firstPhoto.fileName}".`);
     setSession((current) => ({
       ...current,
       photos: [...(current.photos ?? []), ...memories],
@@ -732,9 +744,10 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           isVoiceBusy={isVoiceBusy}
           isRecording={recorder.isRecording}
           elapsedSec={elapsedSec}
-          error={error}
-          onSpeakQuestion={handleSpeakQuestion}
-          onCallButton={handleCallButton}
+        error={error}
+        notice={studioNotice}
+        onSpeakQuestion={handleSpeakQuestion}
+        onCallButton={handleCallButton}
         />
 
         <aside className="studio-rail studio-rail-right">
@@ -834,6 +847,8 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
           setActivePhotoId(id);
           setPhotoQuestionIndex(0);
           setIsPhotosOpen(false);
+          const focusedPhotoName = photoMemories.find((photo) => photo.id === id)?.fileName;
+          setStudioNotice(locale === "zh" ? `正在围绕“${focusedPhotoName ?? "这张照片"}”继续访谈。` : `Continuing the interview around "${focusedPhotoName ?? "this photo"}".`);
           setSession((current) => ({ ...current, turns: [...current.turns, nowTurn("agent", getInitialPhotoQuestion(locale))] }));
         }}
         onUpdate={handleUpdatePhoto}
@@ -925,6 +940,7 @@ function StudioCenterStage({
   isRecording,
   elapsedSec,
   error,
+  notice,
   onSpeakQuestion,
   onCallButton,
 }: {
@@ -938,6 +954,7 @@ function StudioCenterStage({
   isRecording: boolean;
   elapsedSec: number;
   error: string;
+  notice: string;
   onSpeakQuestion: () => void;
   onCallButton: () => void;
 }) {
@@ -980,6 +997,20 @@ function StudioCenterStage({
         {error || phaseInfo.hint}
         {isCallActive && elapsedSec > 0 ? ` · ${formatDuration(elapsedSec)}` : ""}
       </p>
+      <AnimatePresence>
+        {notice && (
+          <motion.p
+            className="studio-flow-notice"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <i className="ri-checkbox-circle-line" />
+            {notice}
+          </motion.p>
+        )}
+      </AnimatePresence>
       <p className="studio-stage-tip">
         <kbd>Space</kbd>
         {locale === "zh" ? "按空格开始/停止口述" : "Press Space to start/stop speaking"}
@@ -1283,6 +1314,9 @@ function PhotoMemorySheet({
               <div>
                 <header>
                   <strong>{photo.fileName}</strong>
+                  {photo.id === activePhotoId && (
+                    <span>{locale === "zh" ? "访谈中" : "Active"}</span>
+                  )}
                   <button type="button" onClick={() => onDelete(photo.id)} aria-label={locale === "zh" ? "删除照片" : "Delete photo"}>
                     <i className="ri-delete-bin-line" />
                   </button>

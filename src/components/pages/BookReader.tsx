@@ -35,6 +35,7 @@ export function BookReader({
   const spreadRef = useRef<HTMLDivElement | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState({ width: 360, height: 509 });
+  const [isEditing, setIsEditing] = useState(false);
   const [flipSheet, setFlipSheet] = useState<{
     direction: "next" | "prev";
     page: ReturnType<typeof buildBookPages>[number];
@@ -93,6 +94,32 @@ export function BookReader({
     onChange?.({ ...book, coverStyle: style });
   }
 
+  function updateBook(patch: Partial<BookDraft>) {
+    onChange?.({ ...book, ...patch });
+  }
+
+  function updateChapter(index: number, patch: Partial<BookDraft["chapters"][number]>) {
+    onChange?.({
+      ...book,
+      chapters: book.chapters.map((chapter, chapterIndex) =>
+        chapterIndex === index ? { ...chapter, ...patch } : chapter
+      ),
+    });
+  }
+
+  function exportHtml() {
+    const html = buildPrintableBookHtml(book, locale);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${safeFileName(book.title || (locale === "zh" ? "星光回忆录" : "starlight-memoir"))}.html`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   return (
     <motion.div
       className="studio-reader-overlay"
@@ -127,6 +154,14 @@ export function BookReader({
               ))}
             </div>
             <nav>
+              <button type="button" onClick={() => setIsEditing((value) => !value)}>
+                <i className={isEditing ? "ri-eye-line" : "ri-edit-line"} />
+                {isEditing ? (locale === "zh" ? "预览" : "Preview") : (locale === "zh" ? "编辑" : "Edit")}
+              </button>
+              <button type="button" onClick={exportHtml}>
+                <i className="ri-download-2-line" />
+                HTML
+              </button>
               <button
                 type="button"
                 onClick={() => turnPage("prev")}
@@ -156,21 +191,81 @@ export function BookReader({
           <span>{book.pipeline ? `${book.pipeline.package}@${book.pipeline.version}` : (locale === "zh" ? "星光回忆录" : "Starlight Memoir")}</span>
         </div>
 
-        <div ref={spreadRef} className={cn("studio-book-spread", flipSheet && `is-turning-${flipSheet.direction}`)} style={pageVars}>
-          <BookPage page={left} side="left" coverStyle={coverStyle} />
-          <BookPage page={right} side="right" coverStyle={coverStyle} />
-          {flipSheet && (
-            <div className={`studio-flip-sheet is-${flipSheet.direction}`} aria-hidden="true">
-              <BookPage
-                page={flipSheet.page}
-                side={flipSheet.direction === "next" ? "right" : "left"}
-                coverStyle={coverStyle}
-              />
-            </div>
+        <div className={cn("studio-reader-workspace", isEditing && "is-editing")}>
+          <div ref={spreadRef} className={cn("studio-book-spread", flipSheet && `is-turning-${flipSheet.direction}`)} style={pageVars}>
+            <BookPage page={left} side="left" coverStyle={coverStyle} />
+            <BookPage page={right} side="right" coverStyle={coverStyle} />
+            {flipSheet && (
+              <div className={`studio-flip-sheet is-${flipSheet.direction}`} aria-hidden="true">
+                <BookPage
+                  page={flipSheet.page}
+                  side={flipSheet.direction === "next" ? "right" : "left"}
+                  coverStyle={coverStyle}
+                />
+              </div>
+            )}
+          </div>
+          {isEditing && (
+            <BookEditPanel
+              book={book}
+              locale={locale}
+              onUpdateBook={updateBook}
+              onUpdateChapter={updateChapter}
+            />
           )}
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function BookEditPanel({
+  book,
+  locale,
+  onUpdateBook,
+  onUpdateChapter,
+}: {
+  book: BookDraft;
+  locale: Locale;
+  onUpdateBook: (patch: Partial<BookDraft>) => void;
+  onUpdateChapter: (index: number, patch: Partial<BookDraft["chapters"][number]>) => void;
+}) {
+  return (
+    <aside className="studio-book-editor">
+      <header>
+        <span className="studio-eyebrow">{locale === "zh" ? "成书编辑" : "Book editor"}</span>
+        <strong>{locale === "zh" ? "调整书稿内容" : "Edit manuscript"}</strong>
+      </header>
+      <label>
+        <span>{locale === "zh" ? "书名" : "Title"}</span>
+        <input value={book.title} onChange={(event) => onUpdateBook({ title: event.target.value })} />
+      </label>
+      <label>
+        <span>{locale === "zh" ? "副标题" : "Subtitle"}</span>
+        <input value={book.subtitle} onChange={(event) => onUpdateBook({ subtitle: event.target.value })} />
+      </label>
+      <label>
+        <span>{locale === "zh" ? "灵魂句" : "Soul line"}</span>
+        <textarea value={book.soulSentence ?? ""} onChange={(event) => onUpdateBook({ soulSentence: event.target.value })} />
+      </label>
+      <div className="studio-book-editor-chapters">
+        {book.chapters.map((chapter, index) => (
+          <section key={index}>
+            <span className="studio-eyebrow">{locale === "zh" ? `章节 ${index + 1}` : `Chapter ${index + 1}`}</span>
+            <input
+              value={chapter.title}
+              onChange={(event) => onUpdateChapter(index, { title: event.target.value })}
+              aria-label={locale === "zh" ? "章节标题" : "Chapter title"}
+            />
+            <textarea
+              value={chapter.contentMarkdown ?? chapter.summary}
+              onChange={(event) => onUpdateChapter(index, { contentMarkdown: event.target.value, summary: event.target.value.slice(0, 160) })}
+              aria-label={locale === "zh" ? "章节正文" : "Chapter body"}
+            />
+          </section>
+        ))}
+      </div>
+    </aside>
   );
 }
 
@@ -208,6 +303,78 @@ function BookPage({
       </div>
     </section>
   );
+}
+
+function buildPrintableBookHtml(book: BookDraft, locale: Locale) {
+  const pages = buildBookPages(book, locale);
+  const coverStyle = book.coverStyle ?? "linen";
+  const pageMarkup = pages.map((page) => {
+    const classes = [
+      "page",
+      `page-${page.kind}`,
+      page.kind === "cover" ? `cover-${coverStyle}` : "",
+      page.kind === "toc" ? "page-toc" : "",
+      page.continued ? "page-continued" : "",
+    ].filter(Boolean).join(" ");
+    const title = page.continued ? page.title.replace(/（续）|\s\(continued\)$/g, "") : page.title;
+    return `
+      <section class="${classes}">
+        <div class="page-inner">
+          <p class="page-kind">${escapeHtml(page.continued ? title : page.kind)}</p>
+          ${page.continued ? "" : `<h1>${escapeHtml(page.title)}</h1>`}
+          <div class="page-body">${escapeHtml(page.body)}</div>
+        </div>
+      </section>
+    `;
+  }).join("\n");
+
+  return `<!doctype html>
+<html lang="${locale === "zh" ? "zh-CN" : "en"}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(book.title)}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eee6d6; color: #2c2116; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; }
+    .page { width: 210mm; height: 297mm; page-break-after: always; overflow: hidden; padding: 26mm 24mm; background: #fbf4e6; position: relative; }
+    .page::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(70,46,24,.06), transparent 16%, transparent 84%, rgba(70,46,24,.05)); pointer-events: none; }
+    .page-inner { position: relative; z-index: 1; }
+    .page-kind { margin: 0; color: #8b6041; font: 10px ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 14mm 0 0; font-size: 30px; font-weight: 500; line-height: 1.22; }
+    .page-body { margin-top: 12mm; white-space: pre-wrap; font-size: 16px; line-height: 1.9; }
+    .page-cover { display: grid; place-items: center; text-align: center; }
+    .page-cover .page-inner { width: 100%; }
+    .cover-linen { background: repeating-linear-gradient(90deg, rgba(72,48,28,.035) 0 1px, transparent 1px 5px), repeating-linear-gradient(0deg, rgba(72,48,28,.025) 0 1px, transparent 1px 6px), #f5ead5; }
+    .cover-ink { background: radial-gradient(circle at 50% 22%, rgba(231,213,177,.12), transparent 28%), linear-gradient(135deg, #211915, #473325); color: #f3e6cd; }
+    .cover-ink .page-kind, .cover-ink .page-body { color: #d9c29f; }
+    .cover-album { background: linear-gradient(90deg, rgba(42,31,22,.2) 0 22mm, transparent 22mm), linear-gradient(135deg, #efe1c6, #f9f1df); }
+    .page-toc { display: grid; place-items: center; }
+    .page-toc .page-inner { width: 72%; border: 1px solid rgba(88,62,38,.22); background: rgba(255,252,244,.42); padding: 18mm; text-align: center; }
+    .page-toc .page-body { display: inline-block; text-align: left; line-height: 2.05; }
+    .page-continued .page-kind { border-bottom: 1px solid rgba(139,96,65,.22); padding-bottom: 6mm; font: 13px "Noto Serif SC", Georgia, serif; letter-spacing: 0; text-align: center; text-transform: none; }
+    .page-continued .page-body { margin-top: 9mm; }
+    @media screen { body { padding: 24px; } .page { margin: 0 auto 24px; box-shadow: 0 18px 70px rgba(20,16,10,.18); } }
+  </style>
+</head>
+<body>
+${pageMarkup}
+</body>
+</html>`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function safeFileName(value: string) {
+  return value.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").slice(0, 80) || "memoir";
 }
 
 /* ─── History Dialog ─── */

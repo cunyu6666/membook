@@ -16,6 +16,7 @@ export function buildBookPages(book: BookDraft, locale: Locale) {
       kind: "cover" as const,
       title: book.title,
       body: [book.subtitle, book.soulSentence].filter(Boolean).join("\n\n"),
+      continued: false,
     },
     ...paginateSection(locale === "zh" ? "目录" : "Contents", toc, "toc", locale, 520, 650),
     ...book.chapters.flatMap((chapter) =>
