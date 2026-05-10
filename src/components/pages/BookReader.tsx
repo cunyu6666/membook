@@ -512,7 +512,7 @@ export function HistoryDialog({
                     <>
                       <p className="truncate font-semibold">{item.title}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {new Date(item.updatedAt).toLocaleString()} · {item.session.turns.length} turns · {item.bookDraft ? (locale === "zh" ? "已有书稿" : "Book ready") : (locale === "zh" ? "未成书" : "No book yet")}
+                        {new Date(item.updatedAt).toLocaleString()} · {item.session.turns.filter((turn) => turn.role === "elder").length} {locale === "zh" ? "轮问答" : "answers"} · {item.bookDraft ? (locale === "zh" ? "已有书稿" : "Book ready") : (locale === "zh" ? "未成书" : "No book yet")}
                       </p>
                     </>
                   )}
@@ -647,7 +647,7 @@ export function SettingsDialog({
       >
         <header>
           <div>
-            <span className="studio-eyebrow">{t.settingsTitle}</span>
+            <span className="studio-eyebrow">{locale === "zh" ? "本机偏好" : "Local preferences"}</span>
             <h3>{t.settingsTitle}</h3>
             <p>{t.settingsDesc}</p>
           </div>
@@ -871,8 +871,8 @@ export function ImportDialog({
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {locale === "zh"
-                ? "粘贴任意格式的访谈文本——聊天记录、录音转写、口述笔记，AI 会自动识别角色和问答。"
-                : "Paste any interview text — chat logs, transcriptions, oral notes. AI will auto-detect speakers and Q&A."}
+                ? "粘贴任意格式的访谈文本——聊天记录、录音转写、口述笔记，系统会自动识别角色和问答。"
+                : "Paste any interview text — chat logs, transcriptions, oral notes. The system will detect speakers and Q&A."}
             </p>
           </div>
           <Button variant="secondary" size="icon" onClick={onClose} aria-label={String(t.close)}>

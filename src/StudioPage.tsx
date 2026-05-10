@@ -374,7 +374,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
   async function transcribeAudioFile(file: File) {
     if (!bailianApiKey) {
       setIsSettingsOpen(true);
-      throw new Error(locale === "zh" ? "请先在设置里填写百炼 API Key。" : "Add your Bailian API key in settings first.");
+      throw new Error(locale === "zh" ? "请先在设置里填写服务密钥。" : "Add your service key in settings first.");
     }
     setIsTranscribing(true);
     setConversationPhase("transcribing");
@@ -406,7 +406,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     if (!bailianApiKey || isSpeaking) {
       if (!bailianApiKey) {
         setIsSettingsOpen(true);
-        setError(locale === "zh" ? "请先在设置里填写百炼 API Key，才能播放 AI 语音。" : "Add your Bailian API key in settings before voice playback.");
+        setError(locale === "zh" ? "请先在设置里填写服务密钥，才能播放朗读语音。" : "Add your service key in settings before voice playback.");
       }
       setConversationPhase("ready");
       return;
@@ -482,7 +482,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     if (isVoiceBusy) return;
     if (!bailianApiKey) {
       setIsSettingsOpen(true);
-      setError(locale === "zh" ? "请先在设置里填写百炼 API Key，然后就可以像打电话一样对话。" : "Add your Bailian API key first, then the call flow can run voice-to-voice.");
+      setError(locale === "zh" ? "请先在设置里填写服务密钥，然后就可以像打电话一样对话。" : "Add your service key first, then the call flow can run voice-to-voice.");
       return;
     }
     await startVoiceRecording();
@@ -493,7 +493,7 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
     if (recorder.isRecording) { await stopVoiceRecording(); return; }
     if (!bailianApiKey) {
       setIsSettingsOpen(true);
-      setError(locale === "zh" ? "请先在设置里填写百炼 API Key，然后就可以按空格开始说话。" : "Add your Bailian API key first, then press Space to speak.");
+      setError(locale === "zh" ? "请先在设置里填写服务密钥，然后就可以按空格开始说话。" : "Add your service key first, then press Space to speak.");
       return;
     }
     if (!isCallActive) setIsCallActive(true);
@@ -1237,7 +1237,7 @@ function TranscriptSheet({
         {turns.map((turn) => (
           <article key={turn.id} className={turn.role === "agent" ? "is-agent" : "is-elder"}>
             <header>
-              <StudioEyebrow>{turn.role === "agent" ? (locale === "zh" ? "AI 提问" : "Guide") : (locale === "zh" ? "老人回答" : "Answer")}</StudioEyebrow>
+              <StudioEyebrow>{turn.role === "agent" ? (locale === "zh" ? "引导提问" : "Guide") : (locale === "zh" ? "老人回答" : "Answer")}</StudioEyebrow>
               <span>{formatTurnTime(turn.createdAt)}</span>
             </header>
             {turn.role === "elder" ? (
@@ -1303,7 +1303,7 @@ function PhotoMemorySheet({
       </div>
       {photos.length === 0 ? (
         <p className="studio-empty-note">
-          {locale === "zh" ? "上传老照片后，照片会出现在中间舞台，AI 会围绕这张照片追问 3 个问题，然后回到原来的访谈链路。" : "Upload a photo and it will appear in the center. The guide will ask three photo questions, then return to the normal interview."}
+          {locale === "zh" ? "上传老照片后，照片会出现在中间舞台，系统会围绕这张照片追问 3 个问题，然后回到原来的访谈链路。" : "Upload a photo and it will appear in the center. The guide will ask three photo questions, then return to the normal interview."}
         </p>
       ) : (
         <div className="studio-photo-list">
@@ -1446,7 +1446,7 @@ function StudioPaymentDialog({
             <strong>微信支付</strong>
           </div>
         </div>
-        <p>{locale === "zh" ? "当前为 Mock 支付二维码。点击下方按钮模拟支付成功，并继续生成回忆录。" : "These are mock QR codes. Confirm to continue generating the memoir."}</p>
+        <p>{locale === "zh" ? "当前为演示支付二维码。点击下方按钮模拟支付成功，并继续生成回忆录。" : "These are demo QR codes. Confirm to continue generating the memoir."}</p>
         <button className="studio-primary-button" type="button" disabled={isGenerating} onClick={onComplete}>
           <i className={isGenerating ? "ri-loader-4-line" : "ri-checkbox-circle-line"} />
           {isGenerating ? (locale === "zh" ? "生成中" : "Generating") : (locale === "zh" ? "我已完成支付" : "Payment completed")}
@@ -1487,10 +1487,10 @@ function getStudioPhaseInfo(phase: ConversationPhase, locale: Locale, activePhot
   const zh: Record<ConversationPhase, { label: string; hint: string }> = {
     idle: { label: "等待开场", hint: "点击中央按钮开始像通话一样的访谈，也可以在底部打字。" },
     ready: { label: "准备倾听", hint: "可以继续口述，也可以直接输入文字回答。" },
-    recording: { label: "正在记录", hint: "讲完后再次点击中间按钮，AI 会整理并继续追问。" },
+    recording: { label: "正在记录", hint: "讲完后再次点击中间按钮，系统会整理并继续追问。" },
     transcribing: { label: "语音识别", hint: "正在把语音转成文字。" },
     thinking: { label: "整理问题", hint: "正在根据刚才的回答生成下一问。" },
-    speaking: { label: "温柔朗读", hint: "AI 正在朗读这一问。" },
+    speaking: { label: "温柔朗读", hint: "正在朗读这一问。" },
     error: { label: "需要处理", hint: "请根据提示处理后继续访谈。" },
   };
   const en: Record<ConversationPhase, { label: string; hint: string }> = {

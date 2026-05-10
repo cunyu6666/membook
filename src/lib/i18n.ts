@@ -90,7 +90,7 @@ export const copy = {
     // Mode selection
     selectMode: "选择使用模式",
     localMode: "本地模式",
-    localModeDesc: "直接调用云端AI服务，无需后端",
+    localModeDesc: "直接调用云端智能服务，无需后端",
     cloudMode: "云端模式",
     cloudModeDesc: "通过后端服务调用，统一数据管理",
   },
@@ -175,7 +175,7 @@ export const copy = {
     // Mode selection
     selectMode: "Select mode",
     localMode: "Local mode",
-    localModeDesc: "Direct AI service calls, no backend needed",
+    localModeDesc: "Direct smart service calls, no backend needed",
     cloudMode: "Cloud mode",
     cloudModeDesc: "Through backend service, unified data management",
   },
