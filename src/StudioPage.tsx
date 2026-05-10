@@ -4,6 +4,7 @@
  * [TO]: 被 App.tsx 的路由挂载
  */
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BookReader, SettingsDialog, ImportDialog } from "./components/pages/BookReader";
 import logoImage from "./assets/logo.jpg";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
@@ -775,12 +776,6 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
               <i className={isGenerating ? "ri-loader-4-line" : "ri-book-open-line"} />
               {isGenerating ? (locale === "zh" ? "生成中" : "Generating") : (bookDraft ? (locale === "zh" ? "重新成书" : "Regenerate") : (locale === "zh" ? "生成回忆录" : "Create memoir"))}
             </button>
-            {bookDraft && (
-              <button className="studio-secondary-button" type="button" onClick={() => setIsBookOpen(true)}>
-                <i className="ri-pages-line" />
-                {locale === "zh" ? "打开成书预览" : "Open preview"}
-              </button>
-            )}
           </div>
         </aside>
       </section>
@@ -845,22 +840,31 @@ export function StudioPage({ onLogout }: { onLogout: () => void }) {
         onDelete={handleDeletePhoto}
       />
 
-      {bookDraft && isBookOpen && <BookReader book={bookDraft} locale={locale} onClose={() => setIsBookOpen(false)} />}
-      {isPaymentOpen && <StudioPaymentDialog locale={locale} isGenerating={isGenerating} onClose={() => setIsPaymentOpen(false)} onComplete={handlePaymentComplete} />}
-      {isSettingsOpen && (
-        <SettingsDialog
-          apiStatus={apiStatus} bailianApiKey={bailianApiKey} bailianEndpoint={bailianEndpoint}
-          bailianAsrModel={bailianAsrModel} bailianTtsEndpoint={bailianTtsEndpoint}
-          bailianTtsModel={bailianTtsModel} ttsVoice={ttsVoice} isDark={isDark}
-          locale={locale} t={t} onClose={() => setIsSettingsOpen(false)}
-          onToggleTheme={() => setIsDark((value) => !value)} onToggleLocale={() => setLocale(locale === "zh" ? "en" : "zh")}
-          onBailianApiKeyChange={setBailianApiKey} onBailianEndpointChange={setBailianEndpoint}
-          onBailianAsrModelChange={setBailianAsrModel} onBailianTtsEndpointChange={setBailianTtsEndpoint}
-          onBailianTtsModelChange={setBailianTtsModel} onTtsVoiceChange={setTtsVoice}
-          onResetVoiceDefaults={() => { setBailianEndpoint(defaultBailianEndpoint); setBailianAsrModel("fun-asr-realtime-2026-02-28"); setBailianTtsEndpoint(defaultBailianTtsEndpoint); setBailianTtsModel("qwen3-tts-instruct-flash-realtime"); setTtsVoice("Cherry"); }}
-        />
-      )}
-      {isImportOpen && <ImportDialog locale={locale} onClose={() => setIsImportOpen(false)} onImport={handleImportContent} />}
+      <AnimatePresence>
+        {bookDraft && isBookOpen && <BookReader key="book-reader" book={bookDraft} locale={locale} onClose={() => setIsBookOpen(false)} onChange={setBookDraft} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isPaymentOpen && <StudioPaymentDialog key="payment" locale={locale} isGenerating={isGenerating} onClose={() => setIsPaymentOpen(false)} onComplete={handlePaymentComplete} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <SettingsDialog
+            key="settings"
+            apiStatus={apiStatus} bailianApiKey={bailianApiKey} bailianEndpoint={bailianEndpoint}
+            bailianAsrModel={bailianAsrModel} bailianTtsEndpoint={bailianTtsEndpoint}
+            bailianTtsModel={bailianTtsModel} ttsVoice={ttsVoice} isDark={isDark}
+            locale={locale} t={t} onClose={() => setIsSettingsOpen(false)}
+            onToggleTheme={() => setIsDark((value) => !value)} onToggleLocale={() => setLocale(locale === "zh" ? "en" : "zh")}
+            onBailianApiKeyChange={setBailianApiKey} onBailianEndpointChange={setBailianEndpoint}
+            onBailianAsrModelChange={setBailianAsrModel} onBailianTtsEndpointChange={setBailianTtsEndpoint}
+            onBailianTtsModelChange={setBailianTtsModel} onTtsVoiceChange={setTtsVoice}
+            onResetVoiceDefaults={() => { setBailianEndpoint(defaultBailianEndpoint); setBailianAsrModel("fun-asr-realtime-2026-02-28"); setBailianTtsEndpoint(defaultBailianTtsEndpoint); setBailianTtsModel("qwen3-tts-instruct-flash-realtime"); setTtsVoice("Cherry"); }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isImportOpen && <ImportDialog key="import" locale={locale} onClose={() => setIsImportOpen(false)} onImport={handleImportContent} />}
+      </AnimatePresence>
     </main>
   );
 }
@@ -896,7 +900,6 @@ function StudioRibbon({
         </div>
       </div>
       <div className="studio-current-session">
-        <StudioEyebrow>{locale === "zh" ? "当前档案" : "Current"}</StudioEyebrow>
         <span>{title}</span>
       </div>
       <div className="studio-ribbon-actions">
@@ -943,9 +946,6 @@ function StudioCenterStage({
       <div className="studio-chapter-mark">
         <strong>{locale === "zh" ? "第一章 · 序曲" : "Chapter I · Prelude"}</strong>
       </div>
-      <div className="studio-phase-line">
-        <span className="studio-eyebrow">{phaseInfo.label}</span>
-      </div>
       {activePhoto && (
         <figure className="studio-photo-focus">
           <img src={activePhoto.imageDataUrl} alt={activePhoto.fileName} />
@@ -979,6 +979,10 @@ function StudioCenterStage({
       <p className="studio-stage-hint">
         {error || phaseInfo.hint}
         {isCallActive && elapsedSec > 0 ? ` · ${formatDuration(elapsedSec)}` : ""}
+      </p>
+      <p className="studio-stage-tip">
+        <kbd>Space</kbd>
+        {locale === "zh" ? "按空格开始/停止口述" : "Press Space to start/stop speaking"}
       </p>
     </section>
   );
@@ -1324,8 +1328,20 @@ function StudioSheet({
 }) {
   return (
     <>
-      <div className={`studio-sheet-backdrop ${open ? "is-open" : ""}`} onClick={onClose} />
-      <aside className={`studio-sheet studio-sheet-${side} ${open ? "is-open" : ""}`} style={{ width }}>
+      <motion.div
+        className={`studio-sheet-backdrop ${open ? "is-open" : ""}`}
+        initial={false}
+        animate={{ opacity: open ? 1 : 0 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        onClick={onClose}
+      />
+      <motion.aside
+        className={`studio-sheet studio-sheet-${side}`}
+        initial={false}
+        animate={{ x: open ? 0 : side === "left" ? "-100%" : "100%" }}
+        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+        style={{ width, pointerEvents: open ? "auto" : "none" }}
+      >
         <header>
           <div>
             <StudioEyebrow>{eyebrow}</StudioEyebrow>
@@ -1335,7 +1351,7 @@ function StudioSheet({
         </header>
         <div className="studio-sheet-body">{children}</div>
         {footer && <footer>{footer}</footer>}
-      </aside>
+      </motion.aside>
     </>
   );
 }
@@ -1352,8 +1368,20 @@ function StudioPaymentDialog({
   onComplete: () => void;
 }) {
   return (
-    <div className="studio-payment-backdrop">
-      <section className="studio-payment-card">
+    <motion.div
+      className="studio-payment-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.section
+        className="studio-payment-card"
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.985 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      >
         <header>
           <div>
             <StudioEyebrow>{locale === "zh" ? "成书付费" : "Payment"}</StudioEyebrow>
@@ -1388,8 +1416,8 @@ function StudioPaymentDialog({
           <i className={isGenerating ? "ri-loader-4-line" : "ri-checkbox-circle-line"} />
           {isGenerating ? (locale === "zh" ? "生成中" : "Generating") : (locale === "zh" ? "我已完成支付" : "Payment completed")}
         </button>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 

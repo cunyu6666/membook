@@ -4,14 +4,15 @@
  * [TO]: 被 StudioPage.tsx 和 App.tsx 路由消费，用于回忆录展示和系统配置
  * [HERE]: src/components/pages/BookReader.tsx，回忆录阅读与系统对话框集合
  */
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { cn } from "../../lib/utils";
 import { buildBookPages } from "../../lib/bookFormat";
-import type { BookDraft } from "../../lib/types";
+import type { BookDraft, CoverStyle } from "../../lib/types";
 import type { Locale, CopyKeys } from "../../lib/i18n";
 import { copy } from "../../lib/i18n";
 import type { SavedMemoir } from "../../lib/session";
@@ -23,68 +24,164 @@ export function BookReader({
   book,
   locale,
   onClose,
+  onChange,
 }: {
   book: BookDraft;
   locale: Locale;
   onClose: () => void;
+  onChange?: (book: BookDraft) => void;
 }) {
   const pages = buildBookPages(book, locale);
+  const spreadRef = useRef<HTMLDivElement | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState({ width: 360, height: 509 });
+  const [flipSheet, setFlipSheet] = useState<{
+    direction: "next" | "prev";
+    page: ReturnType<typeof buildBookPages>[number];
+  } | null>(null);
+  const coverStyle = book.coverStyle ?? "linen";
   const left = pages[pageIndex];
   const right = pages[pageIndex + 1];
+  const pageVars = {
+    "--book-page-width": `${pageSize.width}px`,
+    "--book-page-height": `${pageSize.height}px`,
+  } as CSSProperties;
+
+  useEffect(() => {
+    if (!flipSheet) return;
+    const timer = window.setTimeout(() => setFlipSheet(null), 620);
+    return () => window.clearTimeout(timer);
+  }, [flipSheet, pageIndex]);
+
+  useEffect(() => {
+    const spread = spreadRef.current;
+    if (!spread) return;
+    const measure = () => {
+      const rect = spread.getBoundingClientRect();
+      const isSinglePage = window.matchMedia("(max-width: 720px)").matches;
+      const gap = isSinglePage ? 0 : 14.4;
+      const maxPageWidth = isSinglePage ? rect.width : (rect.width - gap) / 2;
+      const width = Math.max(180, Math.min(maxPageWidth, rect.height * 210 / 297));
+      const height = width * 297 / 210;
+      setPageSize((current) =>
+        Math.abs(current.width - width) > 0.5 || Math.abs(current.height - height) > 0.5
+          ? { width, height }
+          : current
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(spread);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  function turnPage(direction: "next" | "prev") {
+    const nextIndex = direction === "next"
+      ? Math.min(pages.length - 1, pageIndex + 2)
+      : Math.max(0, pageIndex - 2);
+    if (nextIndex === pageIndex) return;
+    const turningPage = direction === "next" ? pages[pageIndex + 1] ?? pages[pageIndex] : pages[pageIndex];
+    setFlipSheet({ direction, page: turningPage });
+    setPageIndex(nextIndex);
+  }
+
+  function changeCoverStyle(style: CoverStyle) {
+    onChange?.({ ...book, coverStyle: style });
+  }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-[radial-gradient(circle_at_50%_18%,oklch(var(--primary)/0.18),transparent_30rem),oklch(var(--foreground)/0.42)] px-4 py-5 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-        <Badge className="bg-card/80">
-          {book.pipeline
-            ? `${book.pipeline.package}@${book.pipeline.version}`
-            : locale === "zh"
-              ? "回忆录"
-              : "Memoir"}
-        </Badge>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setPageIndex((value) => Math.max(0, value - 2))}
-            disabled={pageIndex === 0}
-          >
-            <i className="ri-arrow-left-s-line" />
-            {locale === "zh" ? "上一页" : "Previous"}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setPageIndex((value) => Math.min(pages.length - 1, value + 2))}
-            disabled={pageIndex >= pages.length - 2}
-          >
-            {locale === "zh" ? "下一页" : "Next"}
-            <i className="ri-arrow-right-s-line" />
-          </Button>
-          <Button variant="secondary" size="icon" onClick={onClose}>
-            <i className="ri-close-line" />
-          </Button>
-        </div>
-      </div>
+    <motion.div
+      className="studio-reader-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        className="studio-reader-shell"
+        initial={{ opacity: 0, y: 16, scale: 0.992 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.992 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <header className="studio-reader-toolbar">
+          <div>
+            <span className="studio-eyebrow">{locale === "zh" ? "成书预览" : "Book preview"}</span>
+            <strong>{book.title}</strong>
+          </div>
+          <div className="studio-reader-controls">
+            <div className="studio-cover-switcher" aria-label={locale === "zh" ? "封面风格" : "Cover style"}>
+              {(["linen", "ink", "album"] as CoverStyle[]).map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  className={style === coverStyle ? "is-active" : ""}
+                  onClick={() => changeCoverStyle(style)}
+                >
+                  {style === "linen" ? (locale === "zh" ? "布纹" : "Linen") : style === "ink" ? (locale === "zh" ? "墨色" : "Ink") : (locale === "zh" ? "相册" : "Album")}
+                </button>
+              ))}
+            </div>
+            <nav>
+              <button
+                type="button"
+                onClick={() => turnPage("prev")}
+                disabled={pageIndex === 0}
+              >
+                <i className="ri-arrow-left-s-line" />
+                {locale === "zh" ? "上一页" : "Previous"}
+              </button>
+              <span>{Math.floor(pageIndex / 2) + 1} / {Math.ceil(pages.length / 2)}</span>
+              <button
+                type="button"
+                onClick={() => turnPage("next")}
+                disabled={pageIndex >= pages.length - 2}
+              >
+                {locale === "zh" ? "下一页" : "Next"}
+                <i className="ri-arrow-right-s-line" />
+              </button>
+              <button type="button" aria-label={locale === "zh" ? "关闭" : "Close"} onClick={onClose}>
+                <i className="ri-close-line" />
+              </button>
+            </nav>
+          </div>
+        </header>
 
-      <div className="mx-auto mt-5 max-w-6xl [perspective:1800px]">
-        <div className="relative grid min-h-[72vh] gap-0 rounded-lg bg-[#3b261a] p-4 shadow-[0_42px_140px_hsl(25_30%_4%/0.45)] md:grid-cols-2">
-          <BookPage page={left} side="left" />
-          <BookPage page={right} side="right" />
-          <div className="pointer-events-none absolute inset-y-4 left-1/2 hidden w-8 -translate-x-1/2 bg-gradient-to-r from-black/24 via-white/16 to-black/24 blur-sm md:block" />
+        <div className="studio-reader-meta">
+          <span>{book.subtitle}</span>
+          <span>{book.pipeline ? `${book.pipeline.package}@${book.pipeline.version}` : (locale === "zh" ? "星光回忆录" : "Starlight Memoir")}</span>
         </div>
-      </div>
-    </div>
+
+        <div ref={spreadRef} className={cn("studio-book-spread", flipSheet && `is-turning-${flipSheet.direction}`)} style={pageVars}>
+          <BookPage page={left} side="left" coverStyle={coverStyle} />
+          <BookPage page={right} side="right" coverStyle={coverStyle} />
+          {flipSheet && (
+            <div className={`studio-flip-sheet is-${flipSheet.direction}`} aria-hidden="true">
+              <BookPage
+                page={flipSheet.page}
+                side={flipSheet.direction === "next" ? "right" : "left"}
+                coverStyle={coverStyle}
+              />
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
 function BookPage({
   page,
   side,
+  coverStyle,
 }: {
-  page?: { title: string; body: string; kind: "cover" | "toc" | "chapter" | "back" };
+  page?: { title: string; body: string; kind: "cover" | "toc" | "chapter" | "back"; continued?: boolean };
   side: "left" | "right";
+  coverStyle: CoverStyle;
 }) {
   if (!page) {
     return <div className="hidden md:block" />;
@@ -93,21 +190,19 @@ function BookPage({
   return (
     <section
       className={cn(
-        "relative min-h-[34rem] overflow-hidden bg-[#f8efd9] p-8 text-[#332414] shadow-inner",
-        side === "left"
-          ? "rounded-l-[1.5rem] md:[transform:rotateY(2deg)]"
-          : "rounded-r-[1.5rem] md:[transform:rotateY(-2deg)]",
+        "studio-book-page",
+        side === "left" ? "is-left" : "is-right",
+        page.kind === "cover" && `is-cover cover-${coverStyle}`,
+        page.kind === "toc" && "is-toc",
+        page.continued && "is-continued",
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.58),transparent_18rem),linear-gradient(90deg,rgba(0,0,0,0.12),transparent_12%,transparent_88%,rgba(0,0,0,0.08))]" />
-      <div className="relative z-10 h-full">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-[#8b6041]">
-          {page.kind}
+      <div>
+        <p className="studio-book-page-kind">
+          {page.continued ? page.title.replace(/（续）|\s\(continued\)$/g, "") : page.kind}
         </p>
-        <h2 className="mt-4 font-serif-cn text-3xl font-bold leading-tight tracking-[-0.04em]">
-          {page.title}
-        </h2>
-        <div className="mt-6 whitespace-pre-wrap font-serif-cn text-[1.02rem] leading-8">
+        {!page.continued && <h2>{page.title}</h2>}
+        <div className="studio-book-page-body">
           {page.body}
         </div>
       </div>
@@ -369,28 +464,34 @@ export function SettingsDialog({
   onResetVoiceDefaults: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg border border-border bg-card p-5 shadow-[0_32px_120px_hsl(220_30%_4%/0.28)]">
-        <div className="flex items-start justify-between gap-4">
+    <motion.div
+      className="studio-dialog-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        className="studio-settings-dialog"
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.985 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <header>
           <div>
-            <Badge>{t.settingsTitle}</Badge>
-            <h3 className="mt-3 text-2xl font-bold tracking-[-0.04em]">
-              {t.settingsTitle}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {t.settingsDesc}
-            </p>
+            <span className="studio-eyebrow">{t.settingsTitle}</span>
+            <h3>{t.settingsTitle}</h3>
+            <p>{t.settingsDesc}</p>
           </div>
-          <Button variant="secondary" size="icon" onClick={onClose} aria-label={t.close}>
+          <button className="studio-icon-button" type="button" onClick={onClose} aria-label={t.close}>
             <i className="ri-close-line" />
-          </Button>
-        </div>
+          </button>
+        </header>
 
-        <div className="mt-5 grid gap-4">
-          <div className="rounded-lg border border-border bg-background/42 p-3">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {t.connectionStatus}
-            </p>
+        <div className="studio-settings-body">
+          <section className="studio-settings-section">
+            <span className="studio-eyebrow">{t.connectionStatus}</span>
             <ConnectionLine
               items={[
                 { label: t.connService, active: Boolean(apiStatus) },
@@ -403,25 +504,23 @@ export function SettingsDialog({
                 { label: locale === "zh" ? "成书" : "Book", active: Boolean(apiStatus?.memoirPipeline) },
               ]}
             />
-          </div>
+          </section>
 
-          <div className="rounded-lg border border-border bg-background/42 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {t.interface}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" onClick={onToggleLocale}>
+          <section className="studio-settings-section">
+            <span className="studio-eyebrow">{t.interface}</span>
+            <div className="studio-settings-actions">
+              <button className="studio-secondary-button" type="button" onClick={onToggleLocale}>
                 {t.language}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onToggleTheme}>
+              </button>
+              <button className="studio-secondary-button" type="button" onClick={onToggleTheme}>
                 <i className={isDark ? "ri-sun-line" : "ri-moon-line"} />
                 {t.theme}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onResetVoiceDefaults}>
+              </button>
+              <button className="studio-secondary-button" type="button" onClick={onResetVoiceDefaults}>
                 {locale === "zh" ? "恢复语音默认" : "Reset voice"}
-              </Button>
+              </button>
             </div>
-          </div>
+          </section>
 
           <Field
             label={t.bailianKey}
@@ -431,7 +530,7 @@ export function SettingsDialog({
             onChange={onBailianApiKeyChange}
           />
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_0.72fr]">
+          <div className="studio-settings-grid">
             <Field
               label={t.bailianEndpoint}
               value={bailianEndpoint}
@@ -444,7 +543,7 @@ export function SettingsDialog({
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_0.72fr]">
+          <div className="studio-settings-grid">
             <Field
               label={t.ttsEndpoint}
               value={bailianTtsEndpoint}
@@ -459,8 +558,8 @@ export function SettingsDialog({
 
           <Field label={t.ttsVoice} value={ttsVoice} onChange={onTtsVoiceChange} />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -491,12 +590,11 @@ export function Field({
         };
 
   return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <label className="studio-settings-field">
+      <span className="studio-eyebrow">
         {label}
       </span>
       <input
-        className="h-11 w-full rounded-lg border border-border bg-background/70 px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
         name={name}
         type={type}
         placeholder={placeholder}
@@ -527,29 +625,25 @@ export function ConnectionLine({
   items: Array<{ label: string; active: boolean }>;
 }) {
   return (
-    <div className="flex items-center">
+    <div className="studio-connection-line">
       {items.map((item, index) => (
-        <div key={item.label} className="flex flex-1 items-center">
-          <div className="flex flex-col items-center">
+        <div key={item.label}>
+          <div>
             <div
               className={cn(
-                "h-2 w-2 rounded-full border-2 transition-colors",
-                item.active
-                  ? "border-green-500 bg-green-500"
-                  : "border-muted-foreground/30 bg-background",
+                "studio-connection-dot",
+                item.active ? "is-active" : "",
               )}
             />
-            <span className="mt-1 truncate text-[0.5rem] font-medium text-muted-foreground">
+            <span>
               {item.label}
             </span>
           </div>
           {index < items.length - 1 && (
             <div
               className={cn(
-                "mx-0.5 h-px flex-1 border-b border-dashed transition-colors",
-                item.active && items[index + 1]?.active
-                  ? "border-green-500"
-                  : "border-border/40",
+                "studio-connection-rule",
+                item.active && items[index + 1]?.active ? "is-active" : "",
               )}
             />
           )}
@@ -581,8 +675,21 @@ export function ImportDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl">
-      <Card className="w-full max-w-lg p-5">
+    <motion.div
+      className="fixed inset-0 z-50 grid place-items-center bg-foreground/36 px-4 backdrop-blur-xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.985 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full max-w-lg"
+      >
+      <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <Badge>{locale === "zh" ? "导入" : "Import"}</Badge>
@@ -616,6 +723,7 @@ export function ImportDialog({
           </Button>
         </form>
       </Card>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
