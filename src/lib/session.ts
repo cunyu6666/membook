@@ -39,6 +39,8 @@ export function createInitialSession(locale: Locale): InterviewSession {
       },
     ],
     readiness: 12,
+    photos: [],
+    isPaid: false,
   };
 }
 

@@ -16,11 +16,25 @@ export type InterviewInsight = {
   value: string;
 };
 
+export type CoverStyle = "linen" | "ink" | "album";
+
+export type PhotoMemory = {
+  id: string;
+  imageDataUrl: string;
+  fileName: string;
+  description: string;
+  aiObservation: string;
+  story: string;
+  createdAt: string;
+};
+
 export type InterviewSession = {
   id: string;
   turns: InterviewTurn[];
   insights: InterviewInsight[];
   readiness: number;
+  photos?: PhotoMemory[];
+  isPaid?: boolean;
 };
 
 export type AgentInterviewResponse = {
@@ -33,6 +47,7 @@ export type BookDraft = {
   title: string;
   subtitle: string;
   soulSentence?: string;
+  coverStyle?: CoverStyle;
   chapters: Array<{
     title: string;
     summary: string;
