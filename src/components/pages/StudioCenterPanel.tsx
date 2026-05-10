@@ -14,6 +14,7 @@ import { MorphingSpinner } from "../ui/morphing-spinner";
 import { cn } from "../../lib/utils";
 import type { Locale, CopyKeys } from "../../lib/i18n";
 import type { ConversationPhase } from "../../lib/phaseCopy";
+import type { PhotoMemory } from "../../lib/types";
 import { getCallSteps } from "../../lib/phaseCopy";
 
 export function StudioCenterPanel({
@@ -28,6 +29,8 @@ export function StudioCenterPanel({
   phaseCopy,
   phaseProgress,
   recorder,
+  activePhoto,
+  photoQuestionIndex,
   typedAnswer,
   isTranscribing,
   isAsking,
@@ -49,6 +52,8 @@ export function StudioCenterPanel({
   phaseCopy: { badge: string; status: string; action: string; title: string; description: string };
   phaseProgress: number;
   recorder: ReturnType<typeof import("../../hooks/useAudioRecorder").useAudioRecorder>;
+  activePhoto: PhotoMemory | null;
+  photoQuestionIndex: number | null;
   typedAnswer: string;
   isTranscribing: boolean;
   isAsking: boolean;
@@ -65,7 +70,7 @@ export function StudioCenterPanel({
     <Card className="animate-rise-in flex min-h-0 flex-col overflow-hidden p-4 [animation-delay:100ms]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Badge>{isCallActive ? phaseCopy.badge : t.agent}</Badge>
+          <Badge>{activePhoto ? (locale === "zh" ? `照片访谈 ${Number(photoQuestionIndex ?? 0) + 1}/3` : `Photo interview ${Number(photoQuestionIndex ?? 0) + 1}/3`) : isCallActive ? phaseCopy.badge : t.agent}</Badge>
           <h2 className="mt-3 font-serif-cn text-xl font-bold leading-snug tracking-tight lg:text-2xl">
             {latestAgentQuestion}
           </h2>
@@ -83,8 +88,14 @@ export function StudioCenterPanel({
 
       <section className="relative mt-4 flex-1 overflow-hidden rounded-lg border border-border bg-foreground" aria-busy={isVoiceBusy}>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,oklch(var(--primary)/0.12),transparent_15rem),linear-gradient(180deg,oklch(var(--foreground)),oklch(var(--foreground)/0.92))]" />
+        {activePhoto && (
+          <div className="pointer-events-none absolute inset-x-6 top-6 z-20 mx-auto max-w-sm overflow-hidden rounded-lg border border-background/20 bg-background/10 p-2 shadow-2xl backdrop-blur">
+            <img src={activePhoto.imageDataUrl} alt={activePhoto.fileName} className="max-h-52 w-full rounded-md object-cover" />
+            <p className="mt-2 truncate px-1 text-xs text-background/72">{activePhoto.fileName}</p>
+          </div>
+        )}
         <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-5">
-          <div className="flex max-w-sm flex-col items-center text-center">
+          <div className={cn("flex max-w-sm flex-col items-center text-center", activePhoto && "translate-y-28")}>
             <div className="mb-4 rounded-full border border-background/15 bg-background/12 px-3 py-1.5 text-xs font-semibold text-background/78 backdrop-blur">
               {isVoiceBusy ? (
                 conversationPhase === "thinking" ? (

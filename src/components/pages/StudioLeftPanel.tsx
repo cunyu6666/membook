@@ -28,6 +28,7 @@ export function StudioLeftPanel({
   onLogout,
   onToggleDark,
   onImportDialog,
+  onPhotoUpload,
 }: {
   locale: Locale;
   t: CopyKeys;
@@ -43,6 +44,7 @@ export function StudioLeftPanel({
   onLogout: () => void;
   onToggleDark: () => void;
   onImportDialog: () => void;
+  onPhotoUpload: () => void;
 }) {
   const elderTurns = session.turns.filter((turn) => turn.role === "elder");
 
@@ -59,7 +61,7 @@ export function StudioLeftPanel({
             <p className="text-lg font-bold">{t.appName}</p>
           </div>
         </div>
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-7 gap-2">
           <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "历史" : "History"} onClick={onOpenHistory}>
             <i className="ri-history-line" />
           </Button>
@@ -68,6 +70,9 @@ export function StudioLeftPanel({
           </Button>
           <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "导入对话" : "Import"} onClick={onImportDialog}>
             <i className="ri-file-upload-line" />
+          </Button>
+          <Button variant="secondary" size="icon" aria-label={locale === "zh" ? "上传老照片" : "Upload old photo"} onClick={onPhotoUpload}>
+            <i className="ri-image-add-line" />
           </Button>
           <Button variant="secondary" size="icon" aria-label={t.theme} onClick={onToggleDark}>
             <i className={isDark ? "ri-sun-line" : "ri-moon-line"} />

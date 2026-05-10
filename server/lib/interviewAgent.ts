@@ -40,7 +40,9 @@ export function localInterview(session: Session, answer: string) {
   const hasChinese = /[\u4e00-\u9fff]/.test(answer);
   const peopleHint = extractAfter(answer, hasChinese ? ["妈妈", "爸爸", "老师", "朋友", "爷爷", "奶奶"] : ["mother", "father", "teacher", "friend", "grandfather", "grandmother"]);
   const placeHint = extractPlace(answer, hasChinese);
-  const question = hasChinese
+  const question = answer.includes("[PHOTO_FOLLOWUP]")
+    ? localPhotoFollowupQuestion(answer, hasChinese)
+    : hasChinese
     ? "这段记忆里有没有一个具体的画面、声音或气味？请慢慢讲给我听。"
     : "Is there a specific image, sound, or smell in this memory? Please tell me slowly.";
 
@@ -53,6 +55,22 @@ export function localInterview(session: Session, answer: string) {
       { label: hasChinese ? "情感线索" : "Emotional arc", value: hasChinese ? "怀旧、亲密、细节待加深" : "Nostalgic, intimate, needs richer detail" },
     ],
   };
+}
+
+function localPhotoFollowupQuestion(answer: string, hasChinese: boolean) {
+  const asksFinalDetail = /第\s*3\s*个|question\s*3/i.test(answer);
+  const hasPeople = /妈妈|爸爸|父亲|母亲|爷爷|奶奶|外公|外婆|老师|同学|朋友|哥哥|姐姐|弟弟|妹妹|叔叔|阿姨|mother|father|grand|teacher|friend|brother|sister/i.test(answer);
+  const hasPlace = /家|学校|村|镇|城|厂|店|河|山|院|街|北京|上海|广州|place|home|school|village|town|city|factory|street/i.test(answer);
+  if (hasChinese) {
+    if (asksFinalDetail) return "如果把这张照片放进书里，您最想在照片旁边写下哪一句话？";
+    if (hasPeople) return "您刚才提到照片里的人，您和他们当时是什么关系？后来还有没有一件让您一直记得的小事？";
+    if (hasPlace) return "您刚才提到这个地方，那时周围是什么样子？拍完这张照片后，您还记得去了哪里或做了什么吗？";
+    return "听起来这张照片里有一些细节。拍这张照片的前后，您还记得发生过什么小事吗？";
+  }
+  if (asksFinalDetail) return "If this photo appears in the book, what one sentence would you want beside it?";
+  if (hasPeople) return "You mentioned the people in the photo. What was your relationship with them then, and is there a small moment with them you still remember?";
+  if (hasPlace) return "You mentioned this place. What was around you then, and do you remember where you went or what happened after the photo was taken?";
+  return "There are some details in this photo. Do you remember anything that happened just before or after it was taken?";
 }
 
 export async function generateMemoirBook(session: Session, nanoPencilRpc: NanoPencilRpcClient | null): Promise<BookDraft> {
